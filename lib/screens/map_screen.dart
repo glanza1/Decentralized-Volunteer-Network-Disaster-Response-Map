@@ -56,6 +56,7 @@ class DisasterNeed {
     String category;
     switch (requestType) {
       case 'food':
+      case 'food_water':  // Also handle food_water
         category = 'Gıda';
         break;
       case 'shelter':
@@ -153,8 +154,29 @@ class _MapScreenState extends State<MapScreen> {
     try {
       final requests = await _apiService.getLocalRequests();
       if (requests.isNotEmpty) {
+        // Create a map of existing items by ID to preserve local status
+        final Map<String?, String> localStatuses = {};
+        for (var need in _needsList) {
+          if (need.id != null) {
+            localStatuses[need.id] = need.status;
+          }
+        }
+        
+        // Convert new requests but preserve local status if exists
+        final newList = requests.map((r) {
+          final need = DisasterNeed.fromApiResponse(r);
+          // If we have a local status that's different (e.g., completed), keep it
+          if (localStatuses.containsKey(need.id)) {
+            final localStatus = localStatuses[need.id]!;
+            if (localStatus == 'Tamamlandı' || localStatus == 'Yardım Gidiyor') {
+              need.status = localStatus;
+            }
+          }
+          return need;
+        }).toList();
+        
         setState(() {
-          _needsList = requests.map((r) => DisasterNeed.fromApiResponse(r)).toList();
+          _needsList = newList;
           _isConnected = true;
         });
       }
@@ -296,8 +318,32 @@ class _MapScreenState extends State<MapScreen> {
 
   Marker _buildMarker(DisasterNeed need) {
     int realIndex = _needsList.indexOf(need);
-    Color color = need.status == 'Yardım Gidiyor' ? Colors.green : (need.category == "Gıda" ? Colors.orange : (need.category == "Barınak" ? Colors.blue : Colors.red));
-    IconData icon = need.category == "Gıda" ? Icons.fastfood_rounded : (need.category == "Barınak" ? Icons.home_rounded : Icons.medical_services_rounded);
+    
+    // Determine color based on status and category
+    Color color;
+    if (need.status == 'Yardım Gidiyor') {
+      color = Colors.green;
+    } else if (need.category == "Gıda") {
+      color = Colors.orange;
+    } else if (need.category == "Barınak") {
+      color = Colors.blue;
+    } else if (need.category == "Tıbbi") {
+      color = Colors.red;
+    } else {
+      color = Colors.purple;  // For "Diğer" category
+    }
+    
+    // Determine icon based on category
+    IconData icon;
+    if (need.category == "Gıda") {
+      icon = Icons.fastfood_rounded;
+    } else if (need.category == "Barınak") {
+      icon = Icons.home_rounded;
+    } else if (need.category == "Tıbbi") {
+      icon = Icons.medical_services_rounded;
+    } else {
+      icon = Icons.help_rounded;  // For "Diğer" category
+    }
     return Marker(
       point: need.location,
       width: 55, height: 55,

@@ -9,12 +9,13 @@ API Design:
 - Async handlers for non-blocking P2P operations
 - Pydantic models for input validation
 - Comprehensive error handling
+- API key authentication for protected endpoints
 
 Note: In a fully decentralized system, this API is for LOCAL access only.
 Each node exposes its own API, there is no central server.
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import List, Optional
 from datetime import datetime
 import logging
@@ -30,6 +31,7 @@ from models import (
 )
 from storage import message_storage
 from p2p import get_p2p_node, GossipTopic
+from security import get_api_key, get_optional_api_key, SECURITY_ENABLED
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +56,10 @@ router = APIRouter(tags=["Disaster Response"])
     sync to peers when they come into range.
     """
 )
-async def create_help_request(request: HelpRequestCreate) -> HelpRequest:
+async def create_help_request(
+    request: HelpRequestCreate,
+    api_key: str = Depends(get_api_key)  # 🔐 Requires valid API key
+) -> HelpRequest:
     """
     Create and broadcast a new help request.
     

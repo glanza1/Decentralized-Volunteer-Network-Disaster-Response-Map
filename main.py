@@ -100,8 +100,10 @@ import asyncio
 import argparse
 import logging
 import sys
+import os
 from contextlib import asynccontextmanager
 from typing import Optional, List
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -111,6 +113,12 @@ from models import HelpRequest, NodeIdentity
 from storage import message_storage
 from p2p import init_p2p_node, get_p2p_node, GossipTopic
 from api import router as api_router
+from security import init_security, SECURITY_ENABLED
+
+# SSL Certificate paths
+SSL_CERT_DIR = Path(__file__).parent / "certs"
+SSL_CERT_FILE = SSL_CERT_DIR / "cert.pem"
+SSL_KEY_FILE = SSL_CERT_DIR / "key.pem"
 
 # Configure logging
 logging.basicConfig(
@@ -354,6 +362,18 @@ Examples:
         help="Enable debug logging"
     )
     
+    parser.add_argument(
+        "--no-ssl",
+        action="store_true",
+        help="Disable HTTPS (use HTTP instead)"
+    )
+    
+    parser.add_argument(
+        "--no-auth",
+        action="store_true",
+        help="Disable API key authentication (for development)"
+    )
+    
     return parser.parse_args()
 
 
@@ -373,16 +393,47 @@ def main():
         "bootstrap_peers": args.bootstrap
     }
     
+    # Handle security settings
+    if args.no_auth:
+        import security
+        security.SECURITY_ENABLED = False
+        logger.warning("⚠️  API authentication DISABLED")
+    else:
+        # Initialize security and show API key on first run
+        api_key = init_security()
+        if api_key:
+            config["api_key"] = api_key
+    
     # Create application
     app = create_app(config)
     
+    # Configure SSL
+    ssl_keyfile = None
+    ssl_certfile = None
+    protocol = "http"
+    
+    if not args.no_ssl and SSL_CERT_FILE.exists() and SSL_KEY_FILE.exists():
+        ssl_keyfile = str(SSL_KEY_FILE)
+        ssl_certfile = str(SSL_CERT_FILE)
+        protocol = "https"
+        logger.info("🔒 HTTPS enabled with SSL certificates")
+    elif not args.no_ssl:
+        logger.warning("⚠️  SSL certificates not found. Run: openssl req -x509 -newkey rsa:4096 -keyout certs/key.pem -out certs/cert.pem -days 365 -nodes")
+        logger.warning("⚠️  Running in HTTP mode (insecure)")
+    else:
+        logger.warning("⚠️  SSL disabled by --no-ssl flag")
+    
     # Run with uvicorn
     logger.info("Starting Decentralized Disaster Response System...")
+    logger.info(f"API available at: {protocol}://{args.host}:{args.port}/docs")
+    
     uvicorn.run(
         app,
         host=args.host,
         port=args.port,
-        log_level="info" if not args.debug else "debug"
+        log_level="info" if not args.debug else "debug",
+        ssl_keyfile=ssl_keyfile,
+        ssl_certfile=ssl_certfile
     )
 
 
