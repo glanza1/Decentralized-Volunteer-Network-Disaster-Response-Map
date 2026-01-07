@@ -1,21 +1,27 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
 
 class DisasterNeed {
+  final String? id;
   final LatLng location;
   final String description;
   final String category;
+  final String priority;
   int verificationCount;
   String status;
 
   DisasterNeed({
+    this.id,
     required this.location,
     required this.description,
     required this.category,
+    this.priority = 'medium',
     this.verificationCount = 0,
     this.status = 'Açık',
   });
@@ -25,6 +31,7 @@ class DisasterNeed {
     'lng': location.longitude,
     'desc': description,
     'cat': category,
+    'priority': priority,
     'count': verificationCount,
     'status': status,
   };
@@ -34,7 +41,43 @@ class DisasterNeed {
       location: LatLng(json['lat'], json['lng']),
       description: json['desc'],
       category: json['cat'] ?? "Gıda",
-      verificationCount: json['count'],
+      priority: json['priority'] ?? 'medium',
+      verificationCount: json['count'] ?? 0,
+      status: json['status'] ?? 'Açık',
+    );
+  }
+
+  /// Create DisasterNeed from backend API response
+  factory DisasterNeed.fromApiResponse(Map<String, dynamic> json) {
+    final location = json['location'] ?? {};
+    final requestType = json['request_type'] ?? 'other';
+    
+    // Map request_type to Turkish category
+    String category;
+    switch (requestType) {
+      case 'food':
+        category = 'Gıda';
+        break;
+      case 'shelter':
+        category = 'Barınak';
+        break;
+      case 'medical':
+        category = 'Tıbbi';
+        break;
+      default:
+        category = 'Diğer';
+    }
+    
+    return DisasterNeed(
+      id: json['id'],
+      location: LatLng(
+        (location['latitude'] ?? 37.0).toDouble(),
+        (location['longitude'] ?? 28.0).toDouble(),
+      ),
+      description: json['title'] ?? json['description'] ?? '',
+      category: category,
+      priority: json['priority'] ?? 'medium',
+      verificationCount: json['verification_count'] ?? 0,
       status: json['status'] ?? 'Açık',
     );
   }
@@ -51,14 +94,51 @@ class _MapScreenState extends State<MapScreen> {
   List<DisasterNeed> _needsList = [];
   LatLng? _tappedLocation;
   String _tempCategory = "Gıda";
+  bool _isConnected = false;
+  bool _isLoading = false;
+  Timer? _refreshTimer;
+  final ApiService _apiService = ApiService();
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _checkConnection();
+    // Auto-refresh every 10 seconds
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (_) => _syncWithBackend());
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _checkConnection() async {
+    final connected = await _apiService.isConnected();
+    setState(() => _isConnected = connected);
   }
 
   Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    
+    // Try to load from backend first
+    final connected = await _apiService.isConnected();
+    
+    if (connected) {
+      await _syncWithBackend();
+    } else {
+      // Fallback to local storage
+      await _loadFromLocalStorage();
+    }
+    
+    setState(() {
+      _isConnected = connected;
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _loadFromLocalStorage() async {
     final prefs = await SharedPreferences.getInstance();
     final String? needsJson = prefs.getString('saved_needs');
     if (needsJson != null) {
@@ -69,23 +149,34 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  Future<void> _syncWithBackend() async {
+    try {
+      final requests = await _apiService.getLocalRequests();
+      if (requests.isNotEmpty) {
+        setState(() {
+          _needsList = requests.map((r) => DisasterNeed.fromApiResponse(r)).toList();
+          _isConnected = true;
+        });
+      }
+    } catch (e) {
+      print('Sync error: $e');
+      setState(() => _isConnected = false);
+    }
+  }
+
   Future<void> _saveData() async {
     final prefs = await SharedPreferences.getInstance();
     final String encodedData = jsonEncode(_needsList.map((n) => n.toJson()).toList());
     await prefs.setString('saved_needs', encodedData);
   }
 
-  // --- KULLANICI PUANLARINI ARTIRAN FONKSİYONLAR ---
-
   Future<void> _recordUserAction(String actionTitle) async {
     final prefs = await SharedPreferences.getInstance();
     List<String> history = prefs.getStringList('user_history') ?? [];
     
-    // Yeni aksiyonu en başa ekle
     String timestamp = "${DateTime.now().hour}:${DateTime.now().minute}";
     history.insert(0, "[$timestamp] $actionTitle");
     
-    // Toplam teyit/yardım sayılarını artır
     if (actionTitle.contains("Teyit")) {
       int count = prefs.getInt('user_verifications') ?? 0;
       await prefs.setInt('user_verifications', count + 1);
@@ -115,13 +206,53 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  void _addNewNeed(LatLng point, String desc, String cat) {
+  Future<void> _addNewNeed(LatLng point, String desc, String cat) async {
+    // Map Turkish category to API request_type
+    String requestType;
+    switch (cat) {
+      case 'Gıda':
+        requestType = 'food_water';
+        break;
+      case 'Barınak':
+        requestType = 'shelter';
+        break;
+      case 'Tıbbi':
+        requestType = 'medical';
+        break;
+      default:
+        requestType = 'info';
+    }
+
+    // Try to create via backend API
+    if (_isConnected) {
+      // Ensure minimum lengths for API validation
+      String title = desc.length >= 5 ? desc : "$cat ihtiyacı";
+      String description = desc.length >= 10 ? desc : "$cat ihtiyacı bildirimi - $desc";
+      
+      final result = await _apiService.createHelpRequest(
+        latitude: point.latitude,
+        longitude: point.longitude,
+        requestType: requestType,
+        priority: 'medium',
+        title: title,
+        description: description,
+      );
+      
+      if (result != null) {
+        // Successfully created on backend, refresh from server
+        await _syncWithBackend();
+        _recordUserAction("Yeni bir $cat bildirimi ağa yayınlandı.");
+        return;
+      }
+    }
+    
+    // Fallback: add locally
     setState(() {
       _needsList.add(DisasterNeed(location: point, description: desc, category: cat));
       _tappedLocation = null;
     });
     _saveData();
-    _recordUserAction("Yeni bir $cat bildirimi yayınladınız.");
+    _recordUserAction("Yeni bir $cat bildirimi (yerel) yayınladınız.");
   }
 
   @override
@@ -156,6 +287,8 @@ class _MapScreenState extends State<MapScreen> {
           ),
           _buildFloatingStatusBar(),
           _buildActionButton(),
+          if (_isLoading)
+            const Center(child: CircularProgressIndicator()),
         ],
       ),
     );
@@ -188,7 +321,7 @@ class _MapScreenState extends State<MapScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text("${need.category}: ${need.description}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), Text("${need.verificationCount} Teyit", style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold))]),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Expanded(child: Text("${need.category}: ${need.description}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))), Text("${need.verificationCount} Teyit", style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold))]),
             const SizedBox(height: 25),
             if (need.status == 'Açık')
               Row(children: [
@@ -222,7 +355,15 @@ class _MapScreenState extends State<MapScreen> {
               const SizedBox(height: 25),
               TextField(controller: controller, decoration: const InputDecoration(labelText: "Açıklama", border: OutlineInputBorder())),
               const SizedBox(height: 25),
-              ElevatedButton(onPressed: () { _addNewNeed(_tappedLocation!, controller.text, _tempCategory); Navigator.pop(context); }, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1a2a6c), minimumSize: const Size(double.infinity, 55)), child: const Text("YAYINLA", style: TextStyle(color: Colors.white))),
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await _addNewNeed(_tappedLocation!, controller.text, _tempCategory);
+                  setState(() => _tappedLocation = null);
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFb21f1f), minimumSize: const Size(double.infinity, 55)),
+                child: Text(_isConnected ? "P2P AĞINA YAYINLA" : "YEREL OLARAK KAYDET", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
             ],
           ),
         ),
@@ -247,7 +388,37 @@ class _MapScreenState extends State<MapScreen> {
               IconButton(icon: const Icon(Icons.account_circle_rounded, color: Color(0xFF1a2a6c), size: 32), onPressed: () => Navigator.pushNamed(context, '/profile')),
               IconButton(icon: const Icon(Icons.analytics_rounded, color: Color(0xFF1a2a6c), size: 30), onPressed: () => Navigator.pushNamed(context, '/statistics', arguments: _needsList)),
               IconButton(icon: const Icon(Icons.list_alt_rounded, color: Color(0xFF1a2a6c), size: 30), onPressed: () => Navigator.pushNamed(context, '/list', arguments: _needsList)),
-              const Expanded(child: Center(child: Text("Muğla Dağıtık Ağı", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1a2a6c))))),
+              // Connection status indicator
+              Container(
+                width: 12,
+                height: 12,
+                margin: const EdgeInsets.only(left: 8),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _isConnected ? Colors.green : Colors.red,
+                ),
+              ),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _syncWithBackend(),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text("Muğla P2P Ağı", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1a2a6c), fontSize: 13)),
+                        Text(
+                          _isConnected ? "Bağlı • ${_needsList.length} talep" : "Çevrimdışı",
+                          style: TextStyle(fontSize: 11, color: _isConnected ? Colors.green : Colors.red),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded, color: Color(0xFF1a2a6c), size: 28),
+                onPressed: () => _loadData(),
+              ),
             ],
           ),
         ),

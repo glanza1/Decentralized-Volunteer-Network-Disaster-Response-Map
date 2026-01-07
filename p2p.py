@@ -1,53 +1,20 @@
 """
 p2p.py - P2P Networking Layer for Decentralized Disaster Response System
 
-This module implements a conceptual P2P networking layer based on libp2p principles.
+This module implements REAL P2P networking using sockets.
 It provides gossip-based publish/subscribe for message dissemination.
 
-Architecture Overview:
-- Each node maintains connections to multiple peers
-- Messages propagate via gossip protocol (epidemic broadcast)
-- Subscription model allows filtering by topic
-- UUID-based deduplication prevents message storms
-
-libp2p Integration Notes:
-In production, this would use py-libp2p with:
-- Noise protocol for encrypted connections
-- mDNS for local peer discovery
-- DHT (Kademlia) for distributed peer routing
-- GossipSub for efficient pub/sub
-
-Offline/Mesh Networking Concepts:
-=========================================
-This implementation is designed to conceptually support offline/mesh scenarios:
-
-1. Bluetooth Low Energy (BLE):
-   - Nodes advertise using BLE beacons
-   - Message exchange via GATT characteristics
-   - Limited bandwidth (~1Mbps) suits our JSON messages
-   - Range: ~100m outdoors
-   
-2. Wi-Fi Direct:
-   - Forms ad-hoc networks without infrastructure
-   - Higher bandwidth (~250Mbps)
-   - Automatic group formation
-   - Range: ~200m
-   
-3. Hybrid Approach:
-   - Use BLE for discovery and small messages
-   - Upgrade to Wi-Fi Direct for bulk sync
-   - Seamlessly switch between transport layers
-   
-4. Store-and-Forward:
-   - Messages queue when no peers available
-   - Sync occurs when devices come into range
-   - TTL prevents stale message accumulation
-   - Hop count limits propagation diameter
+Architecture:
+- TCP server for receiving messages from peers
+- TCP client for sending messages to peers  
+- UDP broadcast for local network peer discovery
+- Gossip protocol for message propagation
 """
 
 import asyncio
 import logging
 import json
+import socket
 from typing import Dict, Set, Callable, Optional, List
 from datetime import datetime
 from dataclasses import dataclass, field
@@ -57,6 +24,10 @@ from models import HelpRequest, NodeIdentity, PeerInfo
 from storage import message_storage
 
 logger = logging.getLogger(__name__)
+
+# Configuration
+UDP_DISCOVERY_PORT = 5000
+MESSAGE_BUFFER_SIZE = 65535
 
 
 class GossipTopic(str, Enum):
@@ -68,37 +39,43 @@ class GossipTopic(str, Enum):
 
 @dataclass
 class GossipMessage:
-    """
-    Wrapper for messages in the gossip protocol.
-    
-    The gossip protocol wraps application messages with
-    metadata for routing and deduplication.
-    """
+    """Wrapper for messages in the gossip protocol."""
     topic: str
     payload: dict
     sender_id: str
     message_id: str
     timestamp: float = field(default_factory=lambda: datetime.utcnow().timestamp())
+    
+    def to_json(self) -> str:
+        return json.dumps({
+            "topic": self.topic,
+            "payload": self.payload,
+            "sender_id": self.sender_id,
+            "message_id": self.message_id,
+            "timestamp": self.timestamp
+        })
+    
+    @classmethod
+    def from_json(cls, data: str) -> 'GossipMessage':
+        d = json.loads(data)
+        return cls(
+            topic=d["topic"],
+            payload=d["payload"],
+            sender_id=d["sender_id"],
+            message_id=d["message_id"],
+            timestamp=d.get("timestamp", datetime.utcnow().timestamp())
+        )
 
 
 class P2PNode:
     """
-    A P2P node implementation using gossip-based pub/sub.
+    A P2P node implementation using REAL socket-based networking.
     
-    This is a conceptual implementation that simulates P2P networking.
-    In production, this would integrate with py-libp2p.
-    
-    Key Concepts:
-    - Each node is both a client and server (peer)
-    - Messages propagate via gossip (epidemic broadcast)
-    - Subscriptions filter incoming messages by topic
-    - Peer connections are maintained in the background
-    
-    Gossip Protocol Properties:
-    - Probabilistic delivery (high reliability)
-    - Logarithmic message complexity
-    - Resilient to node failures
-    - Eventually consistent message delivery
+    Features:
+    - TCP server for receiving messages
+    - TCP client for sending to peers
+    - UDP broadcast for peer discovery on local network
+    - Gossip protocol for message propagation
     """
     
     def __init__(
@@ -107,14 +84,7 @@ class P2PNode:
         listen_port: int = 4001,
         bootstrap_peers: Optional[List[str]] = None
     ):
-        """
-        Initialize the P2P node.
-        
-        Args:
-            identity: Node's cryptographic identity. Generated if not provided.
-            listen_port: Port to listen for incoming connections.
-            bootstrap_peers: Initial peers to connect to (multiaddrs).
-        """
+        """Initialize the P2P node."""
         self.identity = identity or NodeIdentity.generate_conceptual()
         self.listen_port = listen_port
         self.bootstrap_peers = bootstrap_peers or []
@@ -122,55 +92,71 @@ class P2PNode:
         # Peer management
         self._peers: Dict[str, PeerInfo] = {}
         self._connected_peers: Set[str] = set()
+        self._peer_writers: Dict[str, asyncio.StreamWriter] = {}
         
         # Pub/Sub state
         self._subscriptions: Dict[str, List[Callable]] = {}
-        self._message_handlers: Dict[str, Callable] = {}
+        self._seen_messages: Set[str] = set()
         
         # Statistics
         self._start_time = datetime.utcnow()
         self._messages_sent = 0
         self._messages_received = 0
         
-        # Background tasks
+        # Server state
+        self._server: Optional[asyncio.Server] = None
         self._running = False
         self._tasks: List[asyncio.Task] = []
         
         logger.info(f"P2P Node initialized: {self.identity.node_id}")
     
     async def start(self) -> None:
-        """
-        Start the P2P node.
-        
-        This initiates:
-        1. Listener for incoming connections
-        2. Bootstrap peer connections
-        3. Peer discovery via mDNS (simulated)
-        4. Heartbeat broadcasting
-        5. Message cleanup task
-        """
+        """Start the P2P node with real networking."""
         self._running = True
         
-        logger.info(f"Starting P2P node on port {self.listen_port}")
+        # Start TCP server for incoming connections
+        self._server = await asyncio.start_server(
+            self._handle_peer_connection,
+            '0.0.0.0',
+            self.listen_port
+        )
+        
+        logger.info(f"TCP server listening on port {self.listen_port}")
         
         # Start background tasks
         self._tasks = [
-            asyncio.create_task(self._discovery_loop()),
+            asyncio.create_task(self._udp_discovery_listener()),
+            asyncio.create_task(self._discovery_broadcast_loop()),
             asyncio.create_task(self._heartbeat_loop()),
             asyncio.create_task(self._cleanup_loop()),
+            asyncio.create_task(self._server.serve_forever()),
         ]
         
         # Connect to bootstrap peers
         for peer_addr in self.bootstrap_peers:
-            await self._connect_to_peer(peer_addr)
+            asyncio.create_task(self._connect_to_peer(peer_addr))
         
         logger.info(f"P2P node started: {self.identity.display_name}")
     
     async def stop(self) -> None:
-        """Stop the P2P node and cleanup resources."""
+        """Stop the P2P node."""
         self._running = False
         
-        # Cancel background tasks
+        # Close peer connections
+        for writer in self._peer_writers.values():
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except:
+                pass
+        self._peer_writers.clear()
+        
+        # Stop server
+        if self._server:
+            self._server.close()
+            await self._server.wait_closed()
+        
+        # Cancel tasks
         for task in self._tasks:
             task.cancel()
             try:
@@ -181,98 +167,188 @@ class P2PNode:
         self._tasks.clear()
         logger.info("P2P node stopped")
     
+    async def _handle_peer_connection(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        """Handle incoming TCP connection from a peer."""
+        peer_addr = writer.get_extra_info('peername')
+        logger.info(f"New peer connection from {peer_addr}")
+        
+        try:
+            while self._running:
+                # Read message length prefix (4 bytes)
+                length_data = await reader.read(4)
+                if not length_data:
+                    break
+                
+                msg_length = int.from_bytes(length_data, 'big')
+                if msg_length > MESSAGE_BUFFER_SIZE:
+                    logger.warning(f"Message too large: {msg_length}")
+                    break
+                
+                # Read the message
+                msg_data = await reader.read(msg_length)
+                if not msg_data:
+                    break
+                
+                try:
+                    message = GossipMessage.from_json(msg_data.decode('utf-8'))
+                    await self._handle_incoming_message(message)
+                except json.JSONDecodeError as e:
+                    logger.error(f"Invalid message JSON: {e}")
+                    
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error(f"Peer connection error: {e}")
+        finally:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except:
+                pass
+            logger.info(f"Peer disconnected: {peer_addr}")
+    
+    async def _connect_to_peer(self, peer_addr: str) -> bool:
+        """Connect to a peer via TCP."""
+        try:
+            # Parse address (format: "host:port" or "host:port/node_id")
+            parts = peer_addr.split("/")
+            addr_part = parts[0]
+            peer_id = parts[1] if len(parts) > 1 else addr_part
+            
+            if ":" in addr_part:
+                host, port_str = addr_part.split(":")
+                port = int(port_str)
+            else:
+                host = addr_part
+                port = 4001
+            
+            logger.info(f"Connecting to peer at {host}:{port}")
+            
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(host, port),
+                timeout=5.0
+            )
+            
+            # Store connection
+            self._peer_writers[peer_id] = writer
+            self._connected_peers.add(peer_id)
+            self._peers[peer_id] = PeerInfo(
+                node_id=peer_id,
+                multiaddr=peer_addr,
+                last_seen=datetime.utcnow()
+            )
+            
+            # Start reading from this peer
+            asyncio.create_task(self._read_from_peer(peer_id, reader, writer))
+            
+            logger.info(f"Connected to peer: {peer_id}")
+            return True
+            
+        except asyncio.TimeoutError:
+            logger.warning(f"Connection timeout to {peer_addr}")
+            return False
+        except Exception as e:
+            logger.error(f"Failed to connect to {peer_addr}: {e}")
+            return False
+    
+    async def _read_from_peer(self, peer_id: str, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        """Read messages from a connected peer."""
+        try:
+            while self._running and peer_id in self._connected_peers:
+                length_data = await reader.read(4)
+                if not length_data:
+                    break
+                
+                msg_length = int.from_bytes(length_data, 'big')
+                msg_data = await reader.read(msg_length)
+                if not msg_data:
+                    break
+                
+                try:
+                    message = GossipMessage.from_json(msg_data.decode('utf-8'))
+                    await self._handle_incoming_message(message)
+                except:
+                    pass
+                    
+        except:
+            pass
+        finally:
+            self._disconnect_peer(peer_id)
+    
+    def _disconnect_peer(self, peer_id: str) -> None:
+        """Clean up peer connection."""
+        self._connected_peers.discard(peer_id)
+        if peer_id in self._peer_writers:
+            try:
+                self._peer_writers[peer_id].close()
+            except:
+                pass
+            del self._peer_writers[peer_id]
+        if peer_id in self._peers:
+            del self._peers[peer_id]
+        logger.info(f"Disconnected peer: {peer_id}")
+    
     def subscribe(self, topic: str, handler: Callable[[dict], None]) -> None:
-        """
-        Subscribe to a gossip topic.
-        
-        Args:
-            topic: Topic to subscribe to (e.g., GossipTopic.HELP_REQUESTS)
-            handler: Callback function for received messages.
-        
-        The handler receives the message payload (dict).
-        """
+        """Subscribe to a gossip topic."""
         if topic not in self._subscriptions:
             self._subscriptions[topic] = []
-        
         self._subscriptions[topic].append(handler)
         logger.info(f"Subscribed to topic: {topic}")
     
     async def publish(self, topic: str, payload: dict) -> None:
-        """
-        Publish a message to a gossip topic.
-        
-        Args:
-            topic: Topic to publish to.
-            payload: Message payload (must be JSON-serializable).
-        
-        The message is wrapped in a GossipMessage and broadcast to all peers.
-        Peers will forward it to their peers (gossip propagation).
-        """
+        """Publish a message to all connected peers."""
         message = GossipMessage(
             topic=topic,
             payload=payload,
             sender_id=self.identity.node_id,
-            message_id=payload.get("id", str(id(payload)))
+            message_id=payload.get("id", f"{self.identity.node_id}-{datetime.utcnow().timestamp()}")
         )
         
-        # Broadcast to all connected peers
+        # Mark as seen to prevent echo
+        self._seen_messages.add(message.message_id)
+        
+        # Send to all connected peers
         await self._broadcast(message)
         
         self._messages_sent += 1
         logger.info(f"Published message to {topic}: {message.message_id}")
     
     async def _broadcast(self, message: GossipMessage) -> None:
-        """
-        Broadcast a message to all connected peers.
+        """Broadcast a message to all connected peers via TCP."""
+        msg_bytes = message.to_json().encode('utf-8')
+        length_prefix = len(msg_bytes).to_bytes(4, 'big')
+        data = length_prefix + msg_bytes
         
-        In production libp2p, this would:
-        1. Serialize the message
-        2. Send to each connected peer's stream
-        3. Peers would forward based on their subscriptions
+        disconnected = []
         
-        Gossip optimization strategies:
-        - Lazy push: Send message IDs first, full message on request
-        - Eager push: Immediately send full messages
-        - Hybrid: Use eager for high-priority, lazy for others
-        """
-        # Simulate network broadcast (conceptual)
-        for peer_id in self._connected_peers:
-            await self._send_to_peer(peer_id, message)
-    
-    async def _send_to_peer(self, peer_id: str, message: GossipMessage) -> bool:
-        """
-        Send a message to a specific peer.
+        for peer_id, writer in self._peer_writers.items():
+            try:
+                writer.write(data)
+                await writer.drain()
+            except Exception as e:
+                logger.warning(f"Failed to send to {peer_id}: {e}")
+                disconnected.append(peer_id)
         
-        In production, this would:
-        1. Get the peer's connection/stream
-        2. Serialize and encrypt the message
-        3. Send over the network
-        4. Handle acknowledgment or retry
-        """
-        # Simulated send (would be actual network I/O in production)
-        logger.debug(f"Sending message to peer {peer_id}: {message.message_id}")
-        
-        # Simulate network latency
-        await asyncio.sleep(0.01)
-        
-        return True
+        # Clean up failed connections
+        for peer_id in disconnected:
+            self._disconnect_peer(peer_id)
     
     async def _handle_incoming_message(self, message: GossipMessage) -> None:
-        """
-        Handle an incoming gossip message.
-        
-        This is called when we receive a message from a peer.
-        The message is:
-        1. Checked for duplicates
-        2. Delivered to local subscribers
-        3. Forwarded to other peers (gossip propagation)
-        """
-        # Check if we've already seen this message
-        if message_storage.has_seen(message.message_id):
-            logger.debug(f"Duplicate message ignored: {message.message_id}")
+        """Handle an incoming gossip message."""
+        # Deduplicate
+        if message.message_id in self._seen_messages:
             return
+        self._seen_messages.add(message.message_id)
+        
+        # Limit seen messages cache
+        if len(self._seen_messages) > 10000:
+            self._seen_messages = set(list(self._seen_messages)[-5000:])
         
         self._messages_received += 1
+        
+        # Update peer last seen
+        if message.sender_id in self._peers:
+            self._peers[message.sender_id].last_seen = datetime.utcnow()
         
         # Deliver to local subscribers
         if message.topic in self._subscriptions:
@@ -282,129 +358,115 @@ class P2PNode:
                 except Exception as e:
                     logger.error(f"Handler error: {e}")
         
-        # Forward to other peers (gossip propagation)
-        # Don't forward back to sender
-        for peer_id in self._connected_peers:
+        # Gossip: forward to other peers (except sender)
+        for peer_id, writer in list(self._peer_writers.items()):
             if peer_id != message.sender_id:
-                await self._send_to_peer(peer_id, message)
+                try:
+                    msg_bytes = message.to_json().encode('utf-8')
+                    length_prefix = len(msg_bytes).to_bytes(4, 'big')
+                    writer.write(length_prefix + msg_bytes)
+                    await writer.drain()
+                except:
+                    pass
     
-    async def _connect_to_peer(self, multiaddr: str) -> bool:
-        """
-        Connect to a peer using their multiaddress.
+    async def _udp_discovery_listener(self) -> None:
+        """Listen for UDP discovery broadcasts from other nodes."""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        sock.setblocking(False)
         
-        libp2p multiaddresses encode transport and identity:
-        - /ip4/192.168.1.1/tcp/4001/p2p/QmNodeId
-        - /dns4/example.com/tcp/4001/p2p/QmNodeId
-        
-        For mesh networks:
-        - /bluetooth/AA:BB:CC:DD:EE:FF/p2p/NodeId
-        - /wifi-direct/DIRECT-xy-DeviceName/p2p/NodeId
-        """
-        logger.info(f"Connecting to peer: {multiaddr}")
-        
-        # Parse multiaddr and extract peer ID (simplified)
-        peer_id = multiaddr.split("/")[-1] if "/" in multiaddr else multiaddr
-        
-        # Simulate connection establishment
-        await asyncio.sleep(0.1)
-        
-        # Add to connected peers
-        self._connected_peers.add(peer_id)
-        self._peers[peer_id] = PeerInfo(
-            node_id=peer_id,
-            multiaddr=multiaddr,
-            last_seen=datetime.utcnow()
-        )
-        
-        logger.info(f"Connected to peer: {peer_id}")
-        return True
+        try:
+            sock.bind(('', UDP_DISCOVERY_PORT))
+            logger.info(f"UDP discovery listening on port {UDP_DISCOVERY_PORT}")
+            
+            loop = asyncio.get_event_loop()
+            
+            while self._running:
+                try:
+                    data, addr = await loop.sock_recvfrom(sock, 1024)
+                    msg = json.loads(data.decode('utf-8'))
+                    
+                    # Ignore our own broadcasts
+                    if msg.get("node_id") == self.identity.node_id:
+                        continue
+                    
+                    peer_addr = f"{addr[0]}:{msg.get('port', 4001)}"
+                    peer_id = msg.get("node_id", peer_addr)
+                    
+                    # Connect if not already connected
+                    if peer_id not in self._connected_peers:
+                        logger.info(f"Discovered peer via UDP: {peer_addr}")
+                        asyncio.create_task(self._connect_to_peer(peer_addr + "/" + peer_id))
+                        
+                except asyncio.CancelledError:
+                    break
+                except Exception as e:
+                    await asyncio.sleep(1)
+                    
+        except Exception as e:
+            logger.error(f"UDP listener error: {e}")
+        finally:
+            sock.close()
     
-    async def _discovery_loop(self) -> None:
-        """
-        Background task for peer discovery.
+    async def _discovery_broadcast_loop(self) -> None:
+        """Periodically broadcast our presence via UDP."""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        sock.setblocking(False)
         
-        In production, this would use:
-        1. mDNS for local network discovery
-        2. DHT for global peer routing
-        3. Bootstrap nodes for initial connection
-        
-        For offline/mesh:
-        - BLE scanning for nearby devices
-        - Wi-Fi Direct service discovery
-        - NFC tap for quick pairing
-        """
-        while self._running:
-            try:
-                # Simulate periodic discovery
-                await asyncio.sleep(30)  # Check every 30 seconds
+        try:
+            while self._running:
+                try:
+                    msg = json.dumps({
+                        "node_id": self.identity.node_id,
+                        "port": self.listen_port,
+                        "name": self.identity.display_name
+                    }).encode('utf-8')
+                    
+                    # Broadcast to local network
+                    sock.sendto(msg, ('<broadcast>', UDP_DISCOVERY_PORT))
+                    
+                except Exception as e:
+                    logger.debug(f"Broadcast error: {e}")
                 
-                # In production: query mDNS, DHT, scan BLE, etc.
-                logger.debug("Running peer discovery...")
+                await asyncio.sleep(10)  # Broadcast every 10 seconds
                 
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error(f"Discovery error: {e}")
+        except asyncio.CancelledError:
+            pass
+        finally:
+            sock.close()
     
     async def _heartbeat_loop(self) -> None:
-        """
-        Background task for heartbeat broadcasting.
-        
-        Heartbeats serve multiple purposes:
-        1. Keep connections alive
-        2. Share node state/capabilities
-        3. Detect peer failures
-        4. Maintain peer list freshness
-        """
+        """Send periodic heartbeats to maintain connections."""
         while self._running:
             try:
-                await asyncio.sleep(60)  # Heartbeat every 60 seconds
+                await asyncio.sleep(60)
                 
-                # Broadcast heartbeat
-                heartbeat = {
-                    "node_id": self.identity.node_id,
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "peers_count": len(self._connected_peers),
-                    "messages_count": message_storage.get_stats()["total_stored"]
-                }
-                
-                await self.publish(GossipTopic.HEARTBEAT, heartbeat)
-                
+                if self._connected_peers:
+                    heartbeat = {
+                        "node_id": self.identity.node_id,
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "peers_count": len(self._connected_peers),
+                        "messages_count": message_storage.get_stats()["total_stored"]
+                    }
+                    await self.publish(GossipTopic.HEARTBEAT, heartbeat)
+                    
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.error(f"Heartbeat error: {e}")
     
     async def _cleanup_loop(self) -> None:
-        """
-        Background task for cleaning up stale data.
-        
-        Periodically:
-        1. Remove expired messages
-        2. Prune inactive peers
-        3. Compact seen message IDs
-        """
+        """Periodically clean up stale data."""
         while self._running:
             try:
-                await asyncio.sleep(300)  # Cleanup every 5 minutes
+                await asyncio.sleep(300)
                 
-                # Cleanup expired messages
                 cleaned = message_storage.cleanup_expired()
                 if cleaned > 0:
                     logger.info(f"Cleaned up {cleaned} expired messages")
-                
-                # Prune stale peers (not seen in 5 minutes)
-                cutoff = datetime.utcnow()
-                stale_peers = [
-                    peer_id for peer_id, peer in self._peers.items()
-                    if (cutoff - peer.last_seen).total_seconds() > 300
-                ]
-                
-                for peer_id in stale_peers:
-                    self._connected_peers.discard(peer_id)
-                    del self._peers[peer_id]
-                    logger.info(f"Pruned stale peer: {peer_id}")
-                
+                    
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -425,29 +487,11 @@ class P2PNode:
         }
     
     def get_peers(self) -> List[PeerInfo]:
-        """Get list of known peers."""
+        """Get list of connected peers."""
         return list(self._peers.values())
 
 
-# Simulated incoming message handler for testing/demo purposes
-async def simulate_incoming_message(node: P2PNode, message: HelpRequest) -> None:
-    """
-    Simulate receiving a message from the network.
-    
-    This is used for testing and demonstration.
-    In production, messages would arrive via actual network connections.
-    """
-    gossip_msg = GossipMessage(
-        topic=GossipTopic.HELP_REQUESTS,
-        payload=message.to_gossip_message(),
-        sender_id=message.sender_id,
-        message_id=message.id
-    )
-    
-    await node._handle_incoming_message(gossip_msg)
-
-
-# Global P2P node instance (initialized in main.py)
+# Global P2P node instance
 p2p_node: Optional[P2PNode] = None
 
 
