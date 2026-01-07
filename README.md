@@ -1,8 +1,14 @@
 # Decentralized Disaster Response System
 
+A comprehensive disaster response platform with both **Python backend** and **Flutter mobile app**.
+
+---
+
+## 🐍 Python Backend (P2P Server)
+
 A P2P backend prototype for coordinating disaster response without central servers.
 
-## Architecture
+### Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -20,7 +26,7 @@ A P2P backend prototype for coordinating disaster response without central serve
 └─────────────────────────────────────────────────────────┘
 ```
 
-## Quick Start
+### Quick Start (Backend)
 
 ```bash
 # Install dependencies
@@ -33,7 +39,7 @@ python main.py
 open http://localhost:8000/docs
 ```
 
-## API Endpoints
+### API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -42,7 +48,7 @@ open http://localhost:8000/docs
 | GET | `/api/nearby-requests` | Get requests near a location |
 | GET | `/api/network/stats` | Get network statistics |
 
-## Project Structure
+### Backend Project Structure
 
 - `main.py` - Application entry point
 - `api.py` - FastAPI REST endpoints
@@ -50,9 +56,35 @@ open http://localhost:8000/docs
 - `models.py` - Pydantic data models
 - `storage.py` - In-memory message storage
 
-## Offline/Mesh Concepts
+### Offline/Mesh Concepts
 
 This prototype supports conceptual extensions for:
 - **Bluetooth LE** - Device discovery and small messages
 - **Wi-Fi Direct** - High-bandwidth ad-hoc networking
 - **Store-and-Forward** - Message queuing when disconnected
+
+---
+
+## 📱 Flutter Mobile App
+
+A cross-platform mobile application for disaster response coordination.
+
+### Quick Start (Mobile App)
+
+```bash
+# Navigate to Flutter project
+cd lib/
+
+# Install dependencies
+flutter pub get
+
+# Run the app
+flutter run
+```
+
+### Mobile App Features
+
+- Interactive map with disaster locations
+- Volunteer profile management
+- P2P network statistics
+- Help request list view
