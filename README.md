@@ -12,8 +12,7 @@ A P2P backend prototype for coordinating disaster response without central serve
 ### Architecture
 
 ```
-<img width="1024" height="559" alt="image" src="https://github.com/user-attachments/assets/d775df19-3890-4484-88cb![Uploading Gemini_Generated_Image_e3ojqee3ojqee3oj.png…]()
--e6d2dbf51beb" />
+![image alt][https://github.com/glanza1/Decentralized-Volunteer-Network-Disaster-Response-Map/blob/222af85c7c32c8ebe0674a0950c0e135891a844f/schema.png]
 ```
 
 ### Quick Start (Backend)
