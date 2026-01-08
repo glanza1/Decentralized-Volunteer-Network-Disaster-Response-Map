@@ -8,22 +8,11 @@ A comprehensive disaster response platform with both **Python backend** and **Fl
 
 A P2P backend prototype for coordinating disaster response without central servers.
 
+
 ### Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                      NODE STRUCTURE                       │
-├─────────────────────────────────────────────────────────┤
-│  ┌─────────────┐    ┌──────────┐    ┌───────────────┐  │
-│  │   FastAPI   │───▶│ Storage  │◀───│   P2P Layer   │  │
-│  │   (api.py)  │    │          │    │   (p2p.py)    │  │
-│  └─────────────┘    └──────────┘    └───────────────┘  │
-│                           │                             │
-│                     ┌─────▼─────┐                       │
-│                     │  Models   │                       │
-│                     │(models.py)│                       │
-│                     └───────────┘                       │
-└─────────────────────────────────────────────────────────┘
+<img width="1024" height="559" alt="image" src="https://github.com/user-attachments/assets/d775df19-3890-4484-88cb-e6d2dbf51beb" />
 ```
 
 ### Quick Start (Backend)
