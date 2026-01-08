@@ -10,10 +10,7 @@ A P2P backend prototype for coordinating disaster response without central serve
 
 
 ### Architecture
-
-```
-![image alt](https://github.com/glanza1/Decentralized-Volunteer-Network-Disaster-Response-Map/blob/a1aac993bfcf8df49988972fa02bcd7a1625b00b/schema.png)
-```
+ ![Image Alt](https://github.com/glanza1/Decentralized-Volunteer-Network-Disaster-Response-Map/blob/adf20813bd8ed05ae1ef4878a59f2d7a0278d79f/schema.png).
 
 ### Quick Start (Backend)
 
