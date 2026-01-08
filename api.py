@@ -33,6 +33,13 @@ from storage import message_storage
 from p2p import get_p2p_node, GossipTopic
 from security import get_api_key, get_optional_api_key, SECURITY_ENABLED
 
+# Blockchain integration (optional - gracefully handle if not available)
+try:
+    from blockchain import get_blockchain
+    BLOCKCHAIN_ENABLED = True
+except ImportError:
+    BLOCKCHAIN_ENABLED = False
+
 logger = logging.getLogger(__name__)
 
 # Create API router
@@ -51,6 +58,7 @@ router = APIRouter(tags=["Disaster Response"])
     1. Validated and enriched with metadata (UUID, timestamp, sender ID)
     2. Stored locally in the node's message storage
     3. Published to the gossip network for propagation to all peers
+    4. 🔗 Optionally recorded on blockchain for trust verification
     
     In offline/mesh scenarios, the message would queue locally and
     sync to peers when they come into range.
@@ -91,6 +99,24 @@ async def create_help_request(
             GossipTopic.HELP_REQUESTS,
             help_request.to_gossip_message()
         )
+        
+        # 🔗 Create task on blockchain (if available)
+        blockchain_tx = None
+        if BLOCKCHAIN_ENABLED:
+            try:
+                bc = get_blockchain()
+                blockchain_tx = bc.create_task(
+                    task_id=help_request.id,
+                    latitude=help_request.location.latitude,
+                    longitude=help_request.location.longitude,
+                    request_type=help_request.request_type.value,
+                    priority=help_request.priority.value,
+                    content_hash=f"ipfs://{help_request.id}",  # Placeholder
+                    ttl_seconds=help_request.ttl_seconds
+                )
+                logger.info(f"🔗 Blockchain task created: {blockchain_tx}")
+            except Exception as e:
+                logger.warning(f"Blockchain task creation failed (non-fatal): {e}")
         
         logger.info(f"Created and broadcast help request: {help_request.id}")
         return help_request
@@ -292,3 +318,187 @@ async def trigger_cleanup() -> dict:
     """
     cleaned = message_storage.cleanup_expired()
     return {"cleaned_messages": cleaned}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 🔗 BLOCKCHAIN-INTEGRATED HELP REQUEST ACTIONS
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.post(
+    "/help-request/{request_id}/verify",
+    summary="🔗 Verify a help request (blockchain)",
+    description="""
+    Verify that a help request is legitimate.
+    
+    - Requires trust level 2+ on blockchain
+    - Adds verification score to the request
+    - Rewards verifier with +5 reputation points
+    """
+)
+async def verify_help_request(
+    request_id: str,
+    api_key: str = Depends(get_api_key)
+) -> dict:
+    """Verify a help request on blockchain."""
+    # Check request exists
+    message = message_storage.get(request_id)
+    if not message:
+        raise HTTPException(status_code=404, detail="Help request not found")
+    
+    if not BLOCKCHAIN_ENABLED:
+        raise HTTPException(status_code=503, detail="Blockchain not available")
+    
+    try:
+        bc = get_blockchain()
+        tx_hash = bc.verify_task(request_id)
+        
+        if tx_hash:
+            logger.info(f"🔗 Help request verified on blockchain: {request_id}")
+            return {
+                "success": True,
+                "request_id": request_id,
+                "transaction": tx_hash,
+                "message": "Request verified! You earned +5 reputation points.",
+                "reward_points": 5
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Verification failed")
+            
+    except Exception as e:
+        logger.error(f"Blockchain verify error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post(
+    "/help-request/{request_id}/accept",
+    summary="🔗 Accept/volunteer for a help request (blockchain)",
+    description="""
+    Accept a help request as a volunteer.
+    
+    - Assigns you to the task on blockchain
+    - Updates task status to IN_PROGRESS
+    """
+)
+async def accept_help_request(
+    request_id: str,
+    api_key: str = Depends(get_api_key)
+) -> dict:
+    """Accept a help request on blockchain."""
+    message = message_storage.get(request_id)
+    if not message:
+        raise HTTPException(status_code=404, detail="Help request not found")
+    
+    if not BLOCKCHAIN_ENABLED:
+        raise HTTPException(status_code=503, detail="Blockchain not available")
+    
+    try:
+        bc = get_blockchain()
+        tx_hash = bc.accept_task(request_id)
+        
+        if tx_hash:
+            logger.info(f"🔗 Help request accepted on blockchain: {request_id}")
+            return {
+                "success": True,
+                "request_id": request_id,
+                "transaction": tx_hash,
+                "message": "You accepted this request! Complete it to earn +50 reputation points.",
+                "status": "IN_PROGRESS"
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Accept failed")
+            
+    except Exception as e:
+        logger.error(f"Blockchain accept error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post(
+    "/help-request/{request_id}/complete",
+    summary="🔗 Mark help request as completed (blockchain)",
+    description="""
+    Mark a help request as completed (by the request creator).
+    
+    - Only the original requester can mark as complete
+    - Rewards the volunteer with +50 reputation points (+100 for critical)
+    - Rewards the requester with +10 reputation points
+    """
+)
+async def complete_help_request(
+    request_id: str,
+    api_key: str = Depends(get_api_key)
+) -> dict:
+    """Complete a help request on blockchain."""
+    message = message_storage.get(request_id)
+    if not message:
+        raise HTTPException(status_code=404, detail="Help request not found")
+    
+    if not BLOCKCHAIN_ENABLED:
+        raise HTTPException(status_code=503, detail="Blockchain not available")
+    
+    try:
+        bc = get_blockchain()
+        tx_hash = bc.complete_task(request_id)
+        
+        if tx_hash:
+            # Calculate reward based on priority
+            reward = 50
+            if message.priority.value == "critical":
+                reward = 100
+            
+            logger.info(f"🔗 Help request completed on blockchain: {request_id}")
+            return {
+                "success": True,
+                "request_id": request_id,
+                "transaction": tx_hash,
+                "message": f"Task completed! Volunteer earned +{reward} reputation points.",
+                "volunteer_reward": reward,
+                "creator_reward": 10,
+                "status": "COMPLETED"
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Complete failed")
+            
+    except Exception as e:
+        logger.error(f"Blockchain complete error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(
+    "/help-request/{request_id}/blockchain-status",
+    summary="🔗 Get blockchain status for a help request",
+    description="Get the blockchain verification status and trust info for a help request."
+)
+async def get_blockchain_status(request_id: str) -> dict:
+    """Get blockchain status for a help request."""
+    message = message_storage.get(request_id)
+    if not message:
+        raise HTTPException(status_code=404, detail="Help request not found")
+    
+    if not BLOCKCHAIN_ENABLED:
+        return {
+            "blockchain_enabled": False,
+            "request_id": request_id,
+            "message": "Blockchain not available"
+        }
+    
+    try:
+        bc = get_blockchain()
+        status = bc.get_task_status(request_id)
+        
+        return {
+            "blockchain_enabled": True,
+            "request_id": request_id,
+            "status": status.get("status", "UNKNOWN") if status else "NOT_ON_CHAIN",
+            "verification_score": status.get("verificationScore", 0) if status else 0,
+            "assigned_volunteer": status.get("assignedVolunteer") if status else None,
+            "is_verified": status.get("verificationScore", 0) >= 10 if status else False
+        }
+        
+    except Exception as e:
+        logger.error(f"Blockchain status error: {e}")
+        return {
+            "blockchain_enabled": True,
+            "request_id": request_id,
+            "status": "ERROR",
+            "error": str(e)
+        }

@@ -432,8 +432,16 @@ class _MapScreenState extends State<MapScreen> {
           child: Row(
             children: [
               IconButton(icon: const Icon(Icons.account_circle_rounded, color: Color(0xFF1a2a6c), size: 32), onPressed: () => Navigator.pushNamed(context, '/profile')),
-              IconButton(icon: const Icon(Icons.analytics_rounded, color: Color(0xFF1a2a6c), size: 30), onPressed: () => Navigator.pushNamed(context, '/statistics', arguments: _needsList)),
-              IconButton(icon: const Icon(Icons.list_alt_rounded, color: Color(0xFF1a2a6c), size: 30), onPressed: () => Navigator.pushNamed(context, '/list', arguments: _needsList)),
+              IconButton(icon: const Icon(Icons.analytics_rounded, color: Color(0xFF1a2a6c), size: 30), onPressed: () {
+                // Pass only active (non-completed) needs
+                final activeNeeds = _needsList.where((n) => n.status != 'Tamamlandı').toList();
+                Navigator.pushNamed(context, '/statistics', arguments: activeNeeds);
+              }),
+              IconButton(icon: const Icon(Icons.list_alt_rounded, color: Color(0xFF1a2a6c), size: 30), onPressed: () {
+                // Pass only active (non-completed) needs
+                final activeNeeds = _needsList.where((n) => n.status != 'Tamamlandı').toList();
+                Navigator.pushNamed(context, '/list', arguments: activeNeeds);
+              }),
               // Connection status indicator
               Container(
                 width: 12,
@@ -453,7 +461,7 @@ class _MapScreenState extends State<MapScreen> {
                       children: [
                         const Text("Muğla P2P Ağı", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1a2a6c), fontSize: 13)),
                         Text(
-                          _isConnected ? "Bağlı • ${_needsList.length} talep" : "Çevrimdışı",
+                          _isConnected ? "Bağlı • ${_needsList.where((n) => n.status != 'Tamamlandı').length} talep" : "Çevrimdışı",
                           style: TextStyle(fontSize: 11, color: _isConnected ? Colors.green : Colors.red),
                         ),
                       ],

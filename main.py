@@ -114,6 +114,7 @@ from storage import message_storage
 from p2p import init_p2p_node, get_p2p_node, GossipTopic
 from api import router as api_router
 from security import init_security, SECURITY_ENABLED
+from blockchain_api import router as blockchain_router
 
 # SSL Certificate paths
 SSL_CERT_DIR = Path(__file__).parent / "certs"
@@ -203,6 +204,19 @@ async def lifespan(app: FastAPI):
     # Start P2P node
     await p2p_node.start()
     
+    # Initialize blockchain service (connects to local Hardhat node)
+    try:
+        from blockchain import init_blockchain
+        # Use first Hardhat test account
+        init_blockchain(
+            rpc_url="http://localhost:8545",
+            private_key="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+            contracts_dir=str(Path(__file__).parent / "blockchain" / "deployments")
+        )
+        logger.info("🔗 Blockchain service initialized (Hardhat local)")
+    except Exception as e:
+        logger.warning(f"⚠️  Blockchain service not available: {e}")
+    
     logger.info(f"Node ID: {identity.node_id}")
     logger.info(f"Display Name: {identity.display_name}")
     logger.info(f"P2P Port: {config.get('p2p_port', 4001)}")
@@ -269,6 +283,9 @@ def create_app(config: Optional[dict] = None) -> FastAPI:
     
     # Include API router
     app.include_router(api_router, prefix="/api")
+    
+    # Include Blockchain API router
+    app.include_router(blockchain_router, prefix="/api")
     
     # Root endpoint
     @app.get("/", tags=["Health"])

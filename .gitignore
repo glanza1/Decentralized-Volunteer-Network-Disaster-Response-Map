@@ -33,11 +33,19 @@ migrate_working_dir/
 /build/
 /coverage/
 
-# Symbolication related
-app.*.symbols
+# Python related
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
 
-# Obfuscation related
-app.*.map.json
+# Blockchain/Hardhat related
+blockchain/artifacts/
+blockchain/cache/
+blockchain/typechain-types/
+node_modules/
+yarn-error.log
 
 # Android Studio will place build artifacts here
 /android/app/debug
