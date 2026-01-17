@@ -6,6 +6,10 @@ pytest>=7.4.0
 pytest-asyncio>=0.21.0
 httpx>=0.25.0
 
+# Bluetooth Low Energy (Linux)
+bleak>=0.22.0
+bluez-peripheral>=0.1.7
+
 # Blockchain Integration
 web3>=6.0.0
 eth-account>=0.10.0

@@ -23,6 +23,13 @@ from enum import Enum
 from models import HelpRequest, NodeIdentity, PeerInfo
 from storage import message_storage
 
+# BLE support (optional)
+try:
+    from ble import BLENode, BLEMessage, init_ble_node, get_ble_node, stop_ble_node
+    BLE_AVAILABLE = True
+except ImportError:
+    BLE_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # Configuration
@@ -82,12 +89,17 @@ class P2PNode:
         self,
         identity: Optional[NodeIdentity] = None,
         listen_port: int = 4001,
-        bootstrap_peers: Optional[List[str]] = None
+        bootstrap_peers: Optional[List[str]] = None,
+        enable_ble: bool = False
     ):
         """Initialize the P2P node."""
         self.identity = identity or NodeIdentity.generate_conceptual()
         self.listen_port = listen_port
         self.bootstrap_peers = bootstrap_peers or []
+        self.enable_ble = enable_ble and BLE_AVAILABLE
+        
+        # BLE node reference
+        self._ble_node: Optional[BLENode] = None
         
         # Peer management
         self._peers: Dict[str, PeerInfo] = {}
@@ -136,7 +148,11 @@ class P2PNode:
         for peer_addr in self.bootstrap_peers:
             asyncio.create_task(self._connect_to_peer(peer_addr))
         
-        logger.info(f"P2P node started: {self.identity.display_name}")
+        # Start BLE node if enabled
+        if self.enable_ble:
+            await self._start_ble()
+        
+        logger.info(f"P2P node started: {self.identity.display_name} (BLE: {self.enable_ble})")
     
     async def stop(self) -> None:
         """Stop the P2P node."""
@@ -307,8 +323,15 @@ class P2PNode:
         # Mark as seen to prevent echo
         self._seen_messages.add(message.message_id)
         
-        # Send to all connected peers
+        # Send to all connected peers (TCP)
         await self._broadcast(message)
+        
+        # Also broadcast over BLE if enabled
+        if self._ble_node:
+            try:
+                await self._ble_node.broadcast(topic, payload)
+            except Exception as e:
+                logger.warning(f"BLE broadcast failed: {e}")
         
         self._messages_sent += 1
         logger.info(f"Published message to {topic}: {message.message_id}")
@@ -475,7 +498,7 @@ class P2PNode:
     def get_stats(self) -> dict:
         """Get P2P node statistics."""
         uptime = (datetime.utcnow() - self._start_time).total_seconds()
-        return {
+        stats = {
             "node_id": self.identity.node_id,
             "display_name": self.identity.display_name,
             "uptime_seconds": uptime,
@@ -483,12 +506,50 @@ class P2PNode:
             "known_peers": len(self._peers),
             "messages_sent": self._messages_sent,
             "messages_received": self._messages_received,
-            "subscriptions": list(self._subscriptions.keys())
+            "subscriptions": list(self._subscriptions.keys()),
+            "ble_enabled": self.enable_ble
         }
+        
+        # Add BLE stats if available
+        if self._ble_node:
+            stats["ble"] = self._ble_node.get_stats()
+        
+        return stats
     
     def get_peers(self) -> List[PeerInfo]:
         """Get list of connected peers."""
         return list(self._peers.values())
+    
+    async def _start_ble(self) -> None:
+        """Start the BLE node for Bluetooth communication."""
+        try:
+            def on_ble_message(message: BLEMessage):
+                """Handle incoming BLE message."""
+                # Convert to gossip format and process
+                if message.topic in self._subscriptions:
+                    for handler in self._subscriptions[message.topic]:
+                        try:
+                            handler(message.payload)
+                        except Exception as e:
+                            logger.error(f"BLE message handler error: {e}")
+            
+            self._ble_node = await init_ble_node(
+                node_id=self.identity.node_id,
+                node_name=self.identity.display_name or "DisasterNode",
+                on_message=on_ble_message
+            )
+            logger.info("BLE node started successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to start BLE node: {e}")
+            self.enable_ble = False
+            self._ble_node = None
+    
+    async def _stop_ble(self) -> None:
+        """Stop the BLE node."""
+        if self._ble_node:
+            await self._ble_node.stop()
+            self._ble_node = None
 
 
 # Global P2P node instance
@@ -505,13 +566,15 @@ def get_p2p_node() -> P2PNode:
 def init_p2p_node(
     identity: Optional[NodeIdentity] = None,
     listen_port: int = 4001,
-    bootstrap_peers: Optional[List[str]] = None
+    bootstrap_peers: Optional[List[str]] = None,
+    enable_ble: bool = False
 ) -> P2PNode:
     """Initialize the global P2P node instance."""
     global p2p_node
     p2p_node = P2PNode(
         identity=identity,
         listen_port=listen_port,
-        bootstrap_peers=bootstrap_peers
+        bootstrap_peers=bootstrap_peers,
+        enable_ble=enable_ble
     )
     return p2p_node

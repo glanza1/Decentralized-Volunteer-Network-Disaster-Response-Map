@@ -192,7 +192,8 @@ async def lifespan(app: FastAPI):
     p2p_node = init_p2p_node(
         identity=identity,
         listen_port=config.get("p2p_port", 4001),
-        bootstrap_peers=config.get("bootstrap_peers", [])
+        bootstrap_peers=config.get("bootstrap_peers", []),
+        enable_ble=config.get("enable_ble", False)
     )
     
     # Subscribe to help request topic
@@ -221,6 +222,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"Display Name: {identity.display_name}")
     logger.info(f"P2P Port: {config.get('p2p_port', 4001)}")
     logger.info(f"API Port: {config.get('api_port', 8000)}")
+    logger.info(f"BLE Enabled: {config.get('enable_ble', False)}")
     logger.info("=" * 60)
     
     yield
@@ -391,6 +393,12 @@ Examples:
         help="Disable API key authentication (for development)"
     )
     
+    parser.add_argument(
+        "--enable-ble",
+        action="store_true",
+        help="Enable Bluetooth Low Energy for device-to-device communication (Linux only)"
+    )
+    
     return parser.parse_args()
 
 
@@ -407,7 +415,8 @@ def main():
         "api_port": args.port,
         "p2p_port": args.p2p_port,
         "node_name": args.name,
-        "bootstrap_peers": args.bootstrap
+        "bootstrap_peers": args.bootstrap,
+        "enable_ble": args.enable_ble
     }
     
     # Handle security settings
