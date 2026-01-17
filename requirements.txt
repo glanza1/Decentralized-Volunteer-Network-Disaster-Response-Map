@@ -10,6 +10,10 @@ httpx>=0.25.0
 bleak>=0.22.0
 bluez-peripheral>=0.1.7
 
+# Wallet Management
+mnemonic>=0.20
+cryptography>=41.0.0
+
 # Blockchain Integration
 web3>=6.0.0
 eth-account>=0.10.0

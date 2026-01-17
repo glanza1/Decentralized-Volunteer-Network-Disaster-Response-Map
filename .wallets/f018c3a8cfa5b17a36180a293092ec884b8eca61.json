@@ -1,0 +1,10 @@
+{
+  "address": "0xF018C3A8cfa5B17a36180a293092Ec884B8ecA61",
+  "name": "test-wallet",
+  "created_at": "2026-01-17T13:13:36.223692",
+  "derivation_path": "m/44'/60'/0'/0/0",
+  "encrypted_key": "34450c2a5da432a0995ab01dbd8c33d799bee14ffec4f5be3231a1e9fea6fb2ad9e5843d48de1e7eedb958f44989a15525f465755715d4307b32371aa4c96fde57aa15aabc8077f68f7c57db4219580a",
+  "salt": "907bc08e55d4dbc3d2379502c2150ca2",
+  "nonce": "6fedc3e8dac3d98cd823d358",
+  "version": 1
+}

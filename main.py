@@ -115,6 +115,8 @@ from p2p import init_p2p_node, get_p2p_node, GossipTopic
 from api import router as api_router
 from security import init_security, SECURITY_ENABLED
 from blockchain_api import router as blockchain_router
+from wallet_api import router as wallet_router
+from wallet import init_wallet_manager
 
 # SSL Certificate paths
 SSL_CERT_DIR = Path(__file__).parent / "certs"
@@ -288,6 +290,15 @@ def create_app(config: Optional[dict] = None) -> FastAPI:
     
     # Include Blockchain API router
     app.include_router(blockchain_router, prefix="/api")
+    
+    # Include Wallet API router
+    app.include_router(wallet_router, prefix="/api")
+    
+    # Mount static files for web frontend
+    from fastapi.staticfiles import StaticFiles
+    static_dir = Path(__file__).parent / "web"
+    if static_dir.exists():
+        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
     
     # Root endpoint
     @app.get("/", tags=["Health"])
