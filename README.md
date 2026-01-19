@@ -1,76 +1,150 @@
-# Decentralized Disaster Response System
+# 🌐 Decentralized Disaster Response System
 
-A comprehensive disaster response platform with both **Python backend** and **Flutter mobile app**.
+A **P2P-based disaster response coordination system** that requires no central server. Flutter map application + Python backend + Blockchain smart contracts.
+
+![Architecture](schema.png)
 
 ---
 
-## 🐍 Python Backend (P2P Server)
+## 🚀 Quick Start
 
-A P2P backend prototype for coordinating disaster response without central servers.
-
-
-### Architecture
- ![Image Alt](https://github.com/glanza1/Decentralized-Volunteer-Network-Disaster-Response-Map/blob/adf20813bd8ed05ae1ef4878a59f2d7a0278d79f/schema.png).
-
-### Quick Start (Backend)
+### 1. Install Dependencies
 
 ```bash
-# Install dependencies
+# Python backend
 pip install -r requirements.txt
 
-# Run the node
-python main.py
-
-# Access API docs
-open http://localhost:8000/docs
+# Flutter (if not installed)
+# https://docs.flutter.dev/get-started/install
 ```
+
+### 2. Start the Server
+
+```bash
+python main.py --no-ssl --no-auth
+```
+
+### 3. Access the Application
+
+| Page | URL |
+|------|-----|
+| 🗺️ **Map Application** | http://localhost:8000/app/ |
+| 📚 **API Documentation** | http://localhost:8000/docs |
+| 🔐 **Wallet Page** | http://localhost:8000/static/wallet.html |
+
+---
+
+## 📱 Flutter Mobile/Web Application
+
+### Features
+- 🗺️ OpenStreetMap integration
+- 📍 Create and view help requests
+- ✅ Request verification and acceptance
+- 👤 Blockchain-based digital identity
+- 💰 MESH token reward system
+
+### Web Build (Development)
+
+```bash
+flutter pub get
+flutter build web --release --base-href /app/
+```
+
+### Entry Requirement
+Only valid Ethereum addresses are accepted:
+```
+0xF018C3A8cfa5B17a36180a293092Ec884B8ecA61
+```
+
+---
+
+## 🐍 Python Backend
 
 ### API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/help-request` | Create and broadcast a help request |
-| GET | `/api/local-requests` | Get locally stored help requests |
-| GET | `/api/nearby-requests` | Get requests near a location |
-| GET | `/api/network/stats` | Get network statistics |
+| POST | `/api/help-request` | Create a help request |
+| GET | `/api/local-requests` | List local requests |
+| GET | `/api/nearby-requests` | Get nearby requests |
+| GET | `/api/network/stats` | Network statistics |
+| POST | `/api/wallet/create` | Create new wallet |
+| POST | `/api/wallet/unlock` | Unlock wallet |
+| GET | `/api/blockchain/identity/{addr}` | Volunteer identity |
 
-### Backend Project Structure
+### Modules
 
-- `main.py` - Application entry point
-- `api.py` - FastAPI REST endpoints
-- `p2p.py` - P2P networking layer (gossip-based)
-- `models.py` - Pydantic data models
-- `storage.py` - In-memory message storage
-
-### Offline/Mesh Concepts
-
-This prototype supports conceptual extensions for:
-- **Bluetooth LE** - Device discovery and small messages
-- **Wi-Fi Direct** - High-bandwidth ad-hoc networking
-- **Store-and-Forward** - Message queuing when disconnected
+| File | Description |
+|------|-------------|
+| `main.py` | FastAPI application entry point |
+| `api.py` | Help request REST API |
+| `wallet.py` / `wallet_api.py` | HD Wallet (BIP-39, AES-256-GCM) |
+| `p2p.py` | TCP/UDP P2P, Gossip protocol |
+| `blockchain.py` / `blockchain_api.py` | Web3 smart contract integration |
+| `ble.py` | Bluetooth Low Energy mesh (Linux) |
+| `storage.py` | Thread-safe in-memory storage |
+| `security.py` | API key authentication |
 
 ---
 
-## 📱 Flutter Mobile App
+## 🔗 Smart Contracts (Solidity)
 
-A cross-platform mobile application for disaster response coordination.
+| Contract | Description |
+|----------|-------------|
+| `VolunteerIdentity.sol` | Soul-Bound NFT identity + reputation system |
+| `TaskEscrow.sol` | Task creation, verification, completion |
+| `AidDistribution.sol` | Donation pool + multi-signature |
+| `MeshIncentive.sol` | P2P network contribution rewards (MESH token) |
 
-### Quick Start (Mobile App)
+### Start Blockchain (Optional)
 
 ```bash
-# Navigate to Flutter project
-cd lib/
-
-# Install dependencies
-flutter pub get
-
-# Run the app
-flutter run
+cd blockchain
+npx hardhat node
+npx hardhat run scripts/deploy.js --network localhost
 ```
 
-### Mobile App Features
+---
 
-- Interactive map with disaster locations
-- Volunteer profile management
-- P2P network statistics
-- Help request list view
+## 🏗️ Project Structure
+
+```
+├── main.py                 # FastAPI entry point
+├── api.py                  # Help request API
+├── wallet.py               # HD Wallet management
+├── p2p.py                  # P2P network layer
+├── blockchain.py           # Web3 integration
+├── ble.py                  # Bluetooth mesh
+├── lib/                    # Flutter source code
+│   └── screens/
+│       ├── welcome_screen.dart   # Wallet entry
+│       ├── map_screen.dart       # Map
+│       └── profile_screen.dart   # Digital identity
+├── blockchain/
+│   └── contracts/          # Solidity contracts
+├── build/web/              # Flutter web build
+└── .wallets/               # Encrypted wallets
+```
+
+---
+
+## 🔒 Security
+
+- **Wallet:** AES-256-GCM encryption, PBKDF2 key derivation
+- **API:** API key authentication (optional)
+- **Blockchain:** Trust level-based authorization
+- **Frontend:** Ethereum address format validation
+
+---
+
+## 📡 Offline/Mesh Network
+
+- **TCP/UDP:** Local network peer discovery and gossip protocol
+- **BLE:** Bluetooth mesh communication (Linux, optional)
+- **Store-and-Forward:** Message queuing when disconnected
+
+---
+
+## 📜 License
+
+MIT License
