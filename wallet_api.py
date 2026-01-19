@@ -9,7 +9,8 @@ This module provides REST API endpoints for wallet management:
 """
 
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+import re
 from typing import Optional, List
 import logging
 
@@ -63,6 +64,13 @@ class UnlockWalletRequest(BaseModel):
     """Request to unlock a wallet."""
     address: str
     password: str
+    
+    @field_validator('address')
+    @classmethod
+    def validate_ethereum_address(cls, v: str) -> str:
+        if not re.match(r'^0x[a-fA-F0-9]{40}$', v):
+            raise ValueError('Invalid Ethereum address format. Must be 0x followed by 40 hex characters.')
+        return v
 
 
 class SignMessageRequest(BaseModel):
@@ -83,6 +91,13 @@ class VerifySignatureRequest(BaseModel):
     message: str
     signature: str
     address: str
+    
+    @field_validator('address')
+    @classmethod
+    def validate_ethereum_address(cls, v: str) -> str:
+        if not re.match(r'^0x[a-fA-F0-9]{40}$', v):
+            raise ValueError('Invalid Ethereum address format. Must be 0x followed by 40 hex characters.')
+        return v
 
 
 class WalletInfoResponse(BaseModel):

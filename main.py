@@ -296,6 +296,14 @@ def create_app(config: Optional[dict] = None) -> FastAPI:
     
     # Mount static files for web frontend
     from fastapi.staticfiles import StaticFiles
+    from fastapi.responses import FileResponse, RedirectResponse
+    
+    # Serve Flutter web build
+    flutter_build_dir = Path(__file__).parent / "build" / "web"
+    if flutter_build_dir.exists():
+        app.mount("/app", StaticFiles(directory=str(flutter_build_dir), html=True), name="flutter_app")
+    
+    # Also serve old web files
     static_dir = Path(__file__).parent / "web"
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")

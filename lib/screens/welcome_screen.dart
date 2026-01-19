@@ -11,16 +11,34 @@ class WelcomeScreen extends StatefulWidget {
 class _WelcomeScreenState extends State<WelcomeScreen> {
   final TextEditingController _nameController = TextEditingController();
 
+  bool _isValidEthereumAddress(String address) {
+    final regex = RegExp(r'^0x[a-fA-F0-9]{40}$');
+    return regex.hasMatch(address);
+  }
+
   Future<void> _saveNameAndEnter() async {
-    if (_nameController.text.isNotEmpty) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('user_nickname', _nameController.text);
-      if (mounted) Navigator.pushNamed(context, '/map');
-    } else {
+    final input = _nameController.text.trim();
+    
+    if (input.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Lütfen bir takma ad girin!")),
+        const SnackBar(content: Text("Lütfen cüzdan adresinizi girin!")),
       );
+      return;
     }
+    
+    if (!_isValidEthereumAddress(input)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Geçersiz cüzdan adresi! 0x ile başlayan 42 karakterlik adres girin."),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_nickname', input);
+    if (mounted) Navigator.pushNamed(context, '/map');
   }
 
   @override
@@ -50,7 +68,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     TextField(
                       controller: _nameController,
                       decoration: InputDecoration(
-                        labelText: 'Nickname / Cüzdan Adresi',
+                        labelText: 'Cüzdan Adresi (0x...)',
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
                       ),
                     ),

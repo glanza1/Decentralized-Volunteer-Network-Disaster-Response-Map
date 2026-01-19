@@ -25,8 +25,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   double _meshBalance = 0.0;
   int _packetsRelayed = 0;
   
-  // Test wallet address (in production, get from user's wallet)
-  static const String _testAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+  // Test wallet address (matching .wallets/f018c3a8cfa5b17a36180a293092ec884b8eca61.json)
+  static const String _testAddress = "0xF018C3A8cfa5B17a36180a293092Ec884B8ecA61";
 
   @override
   void initState() {
