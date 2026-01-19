@@ -182,4 +182,26 @@ class ApiService {
       return false;
     }
   }
+
+  /// Check if a wallet address exists in the system
+  Future<bool> checkWalletExists(String address) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/wallet/list'),
+        headers: _headers,
+      ).timeout(const Duration(seconds: 5));
+      
+      if (response.statusCode == 200) {
+        final List<dynamic> wallets = json.decode(response.body);
+        final normalizedAddress = address.toLowerCase();
+        return wallets.any((w) => 
+          (w['address'] as String).toLowerCase() == normalizedAddress
+        );
+      }
+      return false;
+    } catch (e) {
+      print('Wallet check error: $e');
+      return false;
+    }
+  }
 }

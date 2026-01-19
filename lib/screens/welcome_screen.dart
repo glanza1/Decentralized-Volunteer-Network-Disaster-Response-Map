@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -10,6 +11,7 @@ class WelcomeScreen extends StatefulWidget {
 
 class _WelcomeScreenState extends State<WelcomeScreen> {
   final TextEditingController _nameController = TextEditingController();
+  bool _isLoading = false;
 
   bool _isValidEthereumAddress(String address) {
     final regex = RegExp(r'^0x[a-fA-F0-9]{40}$');
@@ -35,10 +37,41 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       );
       return;
     }
+
+    // Check if wallet exists in the system
+    setState(() => _isLoading = true);
     
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_nickname', input);
-    if (mounted) Navigator.pushNamed(context, '/map');
+    try {
+      final walletExists = await ApiService().checkWalletExists(input);
+      
+      if (!walletExists) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Bu cüzdan adresi sistemde kayıtlı değil!"),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        setState(() => _isLoading = false);
+        return;
+      }
+      
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_nickname', input);
+      if (mounted) Navigator.pushNamed(context, '/map');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Bağlantı hatası: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -70,16 +103,23 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       decoration: InputDecoration(
                         labelText: 'Cüzdan Adresi (0x...)',
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                        hintText: '0xF018C3A8cfa5B17a36180a293092Ec884B8ecA61',
                       ),
                     ),
                     const SizedBox(height: 20),
                     ElevatedButton(
-                      onPressed: _saveNameAndEnter,
+                      onPressed: _isLoading ? null : _saveNameAndEnter,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1a2a6c),
                         minimumSize: const Size(double.infinity, 50),
                       ),
-                      child: const Text('AĞA BAĞLAN', style: TextStyle(color: Colors.white)),
+                      child: _isLoading 
+                        ? const SizedBox(
+                            width: 20, 
+                            height: 20, 
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                          )
+                        : const Text('AĞA BAĞLAN', style: TextStyle(color: Colors.white)),
                     ),
                   ],
                 ),

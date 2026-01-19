@@ -265,7 +265,7 @@ async def list_wallets(api_key: str = Depends(get_api_key)):
             created_at=w.created_at,
             derivation_path=w.derivation_path,
             is_encrypted=w.is_encrypted,
-            is_unlocked=(active and active.lower() == w.address.lower())
+            is_unlocked=bool(active and active.lower() == w.address.lower())
         )
         for w in wallets
     ]
