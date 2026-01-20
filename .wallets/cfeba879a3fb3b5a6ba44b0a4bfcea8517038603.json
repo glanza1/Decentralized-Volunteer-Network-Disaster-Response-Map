@@ -1,0 +1,10 @@
+{
+  "address": "0xcfEBa879A3fB3B5a6bA44b0a4bFcea8517038603",
+  "name": "batus123456",
+  "created_at": "2026-01-20T02:01:36.815666",
+  "derivation_path": "m/44'/60'/0'/0/0",
+  "encrypted_key": "c0cfae2151d98f93d3be24397f52c7ff8f3bb1329e73155fffe45c08f62a6adee503ae41a8663bdc130b1140ba8552a9c25612f3e317d8137d3937c7d70e65641ea08ef8b7cb8b6ca4b30d010e5958ea",
+  "salt": "64ca647db9461a12a0de514a583dba9c",
+  "nonce": "144f3605a607de51e1a4b48f",
+  "version": 1
+}
