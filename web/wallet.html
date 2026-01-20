@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -17,13 +18,13 @@
             --text-muted: #94a3b8;
             --border: #334155;
         }
-        
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             background: var(--bg-dark);
@@ -31,17 +32,17 @@
             min-height: 100vh;
             padding: 2rem;
         }
-        
+
         .container {
             max-width: 800px;
             margin: 0 auto;
         }
-        
+
         header {
             text-align: center;
             margin-bottom: 3rem;
         }
-        
+
         h1 {
             font-size: 2.5rem;
             background: linear-gradient(135deg, var(--primary), #a855f7);
@@ -49,12 +50,12 @@
             -webkit-text-fill-color: transparent;
             margin-bottom: 0.5rem;
         }
-        
+
         .subtitle {
             color: var(--text-muted);
             font-size: 1.1rem;
         }
-        
+
         .card {
             background: var(--bg-card);
             border-radius: 16px;
@@ -62,7 +63,7 @@
             margin-bottom: 1.5rem;
             border: 1px solid var(--border);
         }
-        
+
         .card h2 {
             font-size: 1.25rem;
             margin-bottom: 1.5rem;
@@ -70,7 +71,7 @@
             align-items: center;
             gap: 0.5rem;
         }
-        
+
         .btn {
             display: inline-flex;
             align-items: center;
@@ -83,38 +84,38 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-        
+
         .btn-primary {
             background: linear-gradient(135deg, var(--primary), #8b5cf6);
             color: white;
         }
-        
+
         .btn-primary:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
         }
-        
+
         .btn-success {
             background: var(--success);
             color: white;
         }
-        
+
         .btn-danger {
             background: var(--danger);
             color: white;
         }
-        
+
         .btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
-        
+
         .btn-group {
             display: flex;
             gap: 1rem;
             flex-wrap: wrap;
         }
-        
+
         .status {
             display: flex;
             align-items: center;
@@ -123,26 +124,31 @@
             border-radius: 8px;
             margin-bottom: 1rem;
         }
-        
+
         .status.connected {
             background: rgba(16, 185, 129, 0.1);
             border: 1px solid var(--success);
         }
-        
+
         .status.disconnected {
             background: rgba(239, 68, 68, 0.1);
             border: 1px solid var(--danger);
         }
-        
+
         .dot {
             width: 10px;
             height: 10px;
             border-radius: 50%;
         }
-        
-        .dot.green { background: var(--success); }
-        .dot.red { background: var(--danger); }
-        
+
+        .dot.green {
+            background: var(--success);
+        }
+
+        .dot.red {
+            background: var(--danger);
+        }
+
         .address {
             font-family: 'Monaco', 'Consolas', monospace;
             font-size: 0.95rem;
@@ -152,18 +158,18 @@
             word-break: break-all;
             margin: 1rem 0;
         }
-        
+
         .form-group {
             margin-bottom: 1rem;
         }
-        
+
         .form-group label {
             display: block;
             margin-bottom: 0.5rem;
             color: var(--text-muted);
             font-size: 0.9rem;
         }
-        
+
         .form-group input,
         .form-group textarea {
             width: 100%;
@@ -174,12 +180,12 @@
             color: var(--text);
             font-size: 1rem;
         }
-        
+
         .form-group textarea {
             min-height: 100px;
             resize: vertical;
         }
-        
+
         .result {
             background: var(--bg-dark);
             border-radius: 8px;
@@ -190,82 +196,93 @@
             word-break: break-all;
             white-space: pre-wrap;
         }
-        
+
         .result.success {
             border-left: 3px solid var(--success);
         }
-        
+
         .result.error {
             border-left: 3px solid var(--danger);
         }
-        
+
         .info-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 1rem;
         }
-        
+
         .info-item {
             background: var(--bg-dark);
             padding: 1rem;
             border-radius: 8px;
         }
-        
+
         .info-item .label {
             font-size: 0.8rem;
             color: var(--text-muted);
             margin-bottom: 0.25rem;
         }
-        
+
         .info-item .value {
             font-size: 1.25rem;
             font-weight: 600;
         }
-        
-        .hidden { display: none !important; }
-        
+
+        .hidden {
+            display: none !important;
+        }
+
         .metamask-icon {
             width: 24px;
             height: 24px;
         }
-        
+
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
         }
-        
+
         .loading {
             animation: pulse 1.5s infinite;
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <header>
             <h1>🔐 Wallet Connect</h1>
             <p class="subtitle">Disaster Response Network - Blockchain Integration</p>
         </header>
-        
+
         <!-- Connection Status -->
         <div class="card">
             <h2>📡 Connection Status</h2>
-            
+
             <div id="status-disconnected" class="status disconnected">
                 <span class="dot red"></span>
                 <span>Not Connected</span>
             </div>
-            
+
             <div id="status-connected" class="status connected hidden">
                 <span class="dot green"></span>
                 <span>Connected to <span id="network-name">Unknown Network</span></span>
             </div>
-            
+
             <div id="wallet-address" class="address hidden"></div>
-            
+
             <div class="btn-group">
                 <button id="btn-connect" class="btn btn-primary">
                     <svg class="metamask-icon" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5a2.5 2.5 0 00-5 0V5H4c-1.1 0-2 .9-2 2v4H.5a.5.5 0 000 1H2v4c0 1.1.9 2 2 2h4v1.5a2.5 2.5 0 005 0V18h4c1.1 0 2-.9 2-2v-4h1.5a.5.5 0 000-1zM9 3.5A1.5 1.5 0 0110.5 2a1.5 1.5 0 011.5 1.5V5h-3V3.5zM15 18h-4v1.5a1.5 1.5 0 01-1.5 1.5A1.5 1.5 0 018 19.5V18H4c-.55 0-1-.45-1-1v-4h1.5a.5.5 0 000-1H3V8c0-.55.45-1 1-1h14c.55 0 1 .45 1 1v4h-1.5a.5.5 0 000 1H19v4c0 .55-.45 1-1 1h-3z"/>
+                        <path
+                            d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5a2.5 2.5 0 00-5 0V5H4c-1.1 0-2 .9-2 2v4H.5a.5.5 0 000 1H2v4c0 1.1.9 2 2 2h4v1.5a2.5 2.5 0 005 0V18h4c1.1 0 2-.9 2-2v-4h1.5a.5.5 0 000-1zM9 3.5A1.5 1.5 0 0110.5 2a1.5 1.5 0 011.5 1.5V5h-3V3.5zM15 18h-4v1.5a1.5 1.5 0 01-1.5 1.5A1.5 1.5 0 018 19.5V18H4c-.55 0-1-.45-1-1v-4h1.5a.5.5 0 000-1H3V8c0-.55.45-1 1-1h14c.55 0 1 .45 1 1v4h-1.5a.5.5 0 000 1H19v4c0 .55-.45 1-1 1h-3z" />
                     </svg>
                     Connect MetaMask
                 </button>
@@ -274,7 +291,7 @@
                 </button>
             </div>
         </div>
-        
+
         <!-- Wallet Info (shown when connected) -->
         <div id="wallet-info" class="card hidden">
             <h2>💰 Wallet Information</h2>
@@ -293,62 +310,68 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Sign Message (shown when connected) -->
         <div id="sign-section" class="card hidden">
             <h2>✍️ Sign Message</h2>
             <p style="color: var(--text-muted); margin-bottom: 1rem;">
                 Sign a message to prove ownership of your wallet.
             </p>
-            
+
             <div class="form-group">
                 <label for="message-input">Message to Sign</label>
-                <textarea id="message-input" placeholder="Enter your message here...">I am verifying my identity for the Disaster Response Network.\n\nTimestamp: ${new Date().toISOString()}</textarea>
+                <textarea id="message-input"
+                    placeholder="Enter your message here...">I am verifying my identity for the Disaster Response Network.\n\nTimestamp: ${new Date().toISOString()}</textarea>
             </div>
-            
-            <button id="btn-sign" class="btn btn-success">
-                ✍️ Sign Message
-            </button>
-            
+
+            <div class="btn-group">
+                <button id="btn-sign" class="btn btn-success">
+                    ✍️ Sign Message
+                </button>
+                <button id="btn-register" class="btn btn-primary">
+                    🔐 Verify & Register for App
+                </button>
+            </div>
+
             <div id="sign-result" class="result hidden"></div>
         </div>
-        
+
         <!-- Verify Signature -->
         <div class="card">
             <h2>🔍 Verify Signature</h2>
             <p style="color: var(--text-muted); margin-bottom: 1rem;">
                 Verify that a message was signed by a specific address.
             </p>
-            
+
             <div class="form-group">
                 <label for="verify-message">Original Message</label>
                 <textarea id="verify-message" placeholder="Enter the original message..."></textarea>
             </div>
-            
+
             <div class="form-group">
                 <label for="verify-signature">Signature</label>
                 <input type="text" id="verify-signature" placeholder="0x...">
             </div>
-            
+
             <div class="form-group">
                 <label for="verify-address">Expected Signer Address</label>
                 <input type="text" id="verify-address" placeholder="0x...">
             </div>
-            
+
             <button id="btn-verify" class="btn btn-primary">
                 🔍 Verify
             </button>
-            
+
             <div id="verify-result" class="result hidden"></div>
         </div>
-        
+
         <!-- Backend Wallet API -->
         <div class="card">
             <h2>🖥️ Backend Wallet API</h2>
             <p style="color: var(--text-muted); margin-bottom: 1rem;">
                 Use these endpoints for server-side wallet operations.
             </p>
-            
+
             <div class="info-grid">
                 <div class="info-item">
                     <div class="label">Create Wallet</div>
@@ -367,7 +390,7 @@
                     <div class="value" style="font-size: 0.9rem;">GET /api/wallet/balance/{address}</div>
                 </div>
             </div>
-            
+
             <div style="margin-top: 1rem;">
                 <a href="/docs#/Wallet" class="btn btn-primary" target="_blank">
                     📚 View API Documentation
@@ -375,13 +398,13 @@
             </div>
         </div>
     </div>
-    
+
     <script>
         // State
         let provider = null;
         let signer = null;
         let connectedAddress = null;
-        
+
         // Elements
         const btnConnect = document.getElementById('btn-connect');
         const btnDisconnect = document.getElementById('btn-disconnect');
@@ -393,12 +416,12 @@
         const walletInfo = document.getElementById('wallet-info');
         const signSection = document.getElementById('sign-section');
         const networkName = document.getElementById('network-name');
-        
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             checkConnection();
         });
-        
+
         // Check if already connected
         async function checkConnection() {
             if (typeof window.ethereum !== 'undefined') {
@@ -408,35 +431,35 @@
                 }
             }
         }
-        
+
         // Connect Wallet
         btnConnect.addEventListener('click', connectWallet);
-        
+
         async function connectWallet() {
             if (typeof window.ethereum === 'undefined') {
                 alert('MetaMask is not installed! Please install MetaMask extension.');
                 return;
             }
-            
+
             try {
                 btnConnect.disabled = true;
                 btnConnect.innerHTML = '<span class="loading">Connecting...</span>';
-                
+
                 // Request account access
                 await window.ethereum.request({ method: 'eth_requestAccounts' });
-                
+
                 // Create provider and signer
                 provider = new ethers.BrowserProvider(window.ethereum);
                 signer = await provider.getSigner();
                 connectedAddress = await signer.getAddress();
-                
+
                 // Update UI
                 updateConnectedUI();
-                
+
                 // Listen for account/network changes
                 window.ethereum.on('accountsChanged', handleAccountChange);
                 window.ethereum.on('chainChanged', () => window.location.reload());
-                
+
             } catch (error) {
                 console.error('Connection error:', error);
                 alert('Failed to connect: ' + error.message);
@@ -450,7 +473,7 @@
                 `;
             }
         }
-        
+
         // Update UI when connected
         async function updateConnectedUI() {
             statusDisconnected.classList.add('hidden');
@@ -460,24 +483,24 @@
             signSection.classList.remove('hidden');
             btnConnect.classList.add('hidden');
             btnDisconnect.classList.remove('hidden');
-            
+
             walletAddress.textContent = connectedAddress;
-            
+
             // Get network info
             const network = await provider.getNetwork();
             networkName.textContent = network.name || `Chain ${network.chainId}`;
             document.getElementById('chain-id').textContent = network.chainId.toString();
-            
+
             // Get balance
             const balance = await provider.getBalance(connectedAddress);
-            document.getElementById('balance').textContent = 
+            document.getElementById('balance').textContent =
                 parseFloat(ethers.formatEther(balance)).toFixed(4) + ' ETH';
-            
+
             // Get block number
             const blockNumber = await provider.getBlockNumber();
             document.getElementById('block-number').textContent = blockNumber.toLocaleString();
         }
-        
+
         // Handle account change
         function handleAccountChange(accounts) {
             if (accounts.length === 0) {
@@ -487,15 +510,15 @@
                 updateConnectedUI();
             }
         }
-        
+
         // Disconnect
         btnDisconnect.addEventListener('click', disconnectWallet);
-        
+
         function disconnectWallet() {
             provider = null;
             signer = null;
             connectedAddress = null;
-            
+
             statusDisconnected.classList.remove('hidden');
             statusConnected.classList.add('hidden');
             walletAddress.classList.add('hidden');
@@ -503,40 +526,40 @@
             signSection.classList.add('hidden');
             btnConnect.classList.remove('hidden');
             btnDisconnect.classList.add('hidden');
-            
+
             document.getElementById('sign-result').classList.add('hidden');
         }
-        
+
         // Sign Message
         btnSign.addEventListener('click', async () => {
             const message = document.getElementById('message-input').value;
             const resultDiv = document.getElementById('sign-result');
-            
+
             if (!message) {
                 resultDiv.textContent = 'Please enter a message to sign';
                 resultDiv.className = 'result error';
                 resultDiv.classList.remove('hidden');
                 return;
             }
-            
+
             try {
                 btnSign.disabled = true;
                 btnSign.textContent = 'Signing...';
-                
+
                 const signature = await signer.signMessage(message);
-                
+
                 resultDiv.innerHTML = `<strong>✅ Signature Created!</strong>\n\n` +
                     `<strong>Message:</strong>\n${message}\n\n` +
                     `<strong>Signature:</strong>\n${signature}\n\n` +
                     `<strong>Signer:</strong>\n${connectedAddress}`;
                 resultDiv.className = 'result success';
                 resultDiv.classList.remove('hidden');
-                
+
                 // Auto-fill verify section
                 document.getElementById('verify-message').value = message;
                 document.getElementById('verify-signature').value = signature;
                 document.getElementById('verify-address').value = connectedAddress;
-                
+
             } catch (error) {
                 resultDiv.textContent = 'Error: ' + error.message;
                 resultDiv.className = 'result error';
@@ -546,26 +569,90 @@
                 btnSign.textContent = '✍️ Sign Message';
             }
         });
-        
+
+        // Verify & Register for App
+        const btnRegister = document.getElementById('btn-register');
+        btnRegister.addEventListener('click', async () => {
+            const resultDiv = document.getElementById('sign-result');
+
+            if (!connectedAddress) {
+                resultDiv.textContent = 'Please connect MetaMask first';
+                resultDiv.className = 'result error';
+                resultDiv.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                btnRegister.disabled = true;
+                btnRegister.textContent = '🔄 Signing...';
+
+                // Create verification message
+                const timestamp = new Date().toISOString();
+                const message = `I am registering my wallet for the Disaster Response Network.\n\nTimestamp: ${timestamp}\nAddress: ${connectedAddress}`;
+
+                // Sign the message with MetaMask
+                const signature = await signer.signMessage(message);
+
+                btnRegister.textContent = '🔄 Registering...';
+
+                // Send to backend for verification and registration
+                const response = await fetch('/api/wallet/register-external', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        address: connectedAddress,
+                        signature: signature,
+                        message: message,
+                        name: 'metamask-' + connectedAddress.slice(2, 8).toLowerCase()
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `<strong>✅ ${data.message}</strong>\n\n` +
+                        `<strong>Address:</strong>\n${data.address}\n\n` +
+                        `<strong>Name:</strong> ${data.name}\n\n` +
+                        `<strong>Next Step:</strong> Go to <a href="/app/" target="_blank">/app/</a> and login with this address.`;
+                    resultDiv.className = 'result success';
+                } else {
+                    resultDiv.innerHTML = `<strong>❌ Registration Failed</strong>\n\n${data.detail || 'Unknown error'}`;
+                    resultDiv.className = 'result error';
+                }
+
+                resultDiv.classList.remove('hidden');
+
+            } catch (error) {
+                resultDiv.textContent = 'Error: ' + error.message;
+                resultDiv.className = 'result error';
+                resultDiv.classList.remove('hidden');
+            } finally {
+                btnRegister.disabled = false;
+                btnRegister.textContent = '🔐 Verify & Register for App';
+            }
+        });
+
         // Verify Signature
         btnVerify.addEventListener('click', async () => {
             const message = document.getElementById('verify-message').value;
             const signature = document.getElementById('verify-signature').value;
             const address = document.getElementById('verify-address').value;
             const resultDiv = document.getElementById('verify-result');
-            
+
             if (!message || !signature || !address) {
                 resultDiv.textContent = 'Please fill in all fields';
                 resultDiv.className = 'result error';
                 resultDiv.classList.remove('hidden');
                 return;
             }
-            
+
             try {
                 // Recover signer address from signature
                 const recoveredAddress = ethers.verifyMessage(message, signature);
                 const isValid = recoveredAddress.toLowerCase() === address.toLowerCase();
-                
+
                 if (isValid) {
                     resultDiv.innerHTML = `<strong>✅ Signature is VALID!</strong>\n\n` +
                         `The message was signed by:\n${recoveredAddress}`;
@@ -576,9 +663,9 @@
                         `Recovered: ${recoveredAddress}`;
                     resultDiv.className = 'result error';
                 }
-                
+
                 resultDiv.classList.remove('hidden');
-                
+
             } catch (error) {
                 resultDiv.textContent = 'Verification Error: ' + error.message;
                 resultDiv.className = 'result error';
@@ -587,4 +674,5 @@
         });
     </script>
 </body>
+
 </html>

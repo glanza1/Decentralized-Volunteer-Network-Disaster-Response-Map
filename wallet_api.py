@@ -117,6 +117,21 @@ class BalanceResponse(BaseModel):
     balance_eth: float
 
 
+class RegisterExternalWalletRequest(BaseModel):
+    """Request to register an external wallet (MetaMask) after signature verification."""
+    address: str
+    signature: str
+    message: str
+    name: str = Field(default="metamask-wallet", description="Wallet name")
+    
+    @field_validator('address')
+    @classmethod
+    def validate_ethereum_address(cls, v: str) -> str:
+        if not re.match(r'^0x[a-fA-F0-9]{40}$', v):
+            raise ValueError('Invalid Ethereum address format. Must be 0x followed by 40 hex characters.')
+        return v
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # HELPER
 # ═══════════════════════════════════════════════════════════════════════════
@@ -184,6 +199,83 @@ async def import_from_mnemonic(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Failed to import wallet: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/register-external")
+async def register_external_wallet(
+    request: RegisterExternalWalletRequest
+):
+    """
+    Register an external wallet (MetaMask) after verifying the signature.
+    
+    This endpoint allows MetaMask users to register their wallet by:
+    1. Signing a message in MetaMask
+    2. Sending the signature to this endpoint
+    3. Backend verifies signature and registers the address
+    
+    No API key required - signature proves ownership.
+    """
+    import json
+    from datetime import datetime
+    from pathlib import Path
+    
+    try:
+        # Verify the signature
+        is_valid = verify_signature(request.message, request.signature, request.address)
+        
+        if not is_valid:
+            raise HTTPException(
+                status_code=400, 
+                detail="Invalid signature. Make sure you signed the exact message."
+            )
+        
+        # Check if already registered
+        manager = get_manager()
+        existing = manager.list_wallets()
+        for w in existing:
+            if w.address.lower() == request.address.lower():
+                return {
+                    "success": True,
+                    "address": request.address,
+                    "name": w.name,
+                    "message": "Wallet already registered",
+                    "is_new": False
+                }
+        
+        # Register the external wallet (create minimal wallet file)
+        wallets_dir = Path(".wallets")
+        wallets_dir.mkdir(exist_ok=True)
+        
+        wallet_file = wallets_dir / f"{request.address.lower()[2:]}.json"
+        wallet_data = {
+            "address": request.address,
+            "name": request.name,
+            "created_at": datetime.now().isoformat(),
+            "derivation_path": "external/metamask",
+            "is_external": True,
+            "encrypted_key": None,  # External wallet - no private key stored
+            "salt": None,
+            "nonce": None
+        }
+        
+        with open(wallet_file, 'w') as f:
+            json.dump(wallet_data, f, indent=2)
+        
+        logger.info(f"Registered external wallet: {request.address}")
+        
+        return {
+            "success": True,
+            "address": request.address,
+            "name": request.name,
+            "message": "Wallet registered successfully! You can now login to the app.",
+            "is_new": True
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to register external wallet: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

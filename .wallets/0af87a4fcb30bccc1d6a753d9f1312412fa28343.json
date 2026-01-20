@@ -1,0 +1,10 @@
+{
+  "address": "0x0Af87A4fcB30BccC1d6A753d9F1312412FA28343",
+  "name": "demo-wallet-2",
+  "created_at": "2026-01-19T22:29:34.915751",
+  "derivation_path": "m/44'/60'/0'/0/0",
+  "encrypted_key": "3a81344c22cd83d47393164b64e089ad328645bd3ef1d7e841a7e2a1a9012144130bbbf03e0b4fe3daff0f40ccb42e351d773bb27c884e8a4e6860ad4f64c4aea2b0284d78c045578ca7c316055c9d19",
+  "salt": "94288c1a393186db087247cc61303f77",
+  "nonce": "0d88ff6b60b5ade58d0378f1",
+  "version": 1
+}
