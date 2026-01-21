@@ -6,34 +6,6 @@ A **P2P-based disaster response coordination system** that requires no central s
 
 ---
 
-## 🚀 Quick Start
-
-### 1. Install Dependencies
-
-```bash
-# Python backend
-pip install -r requirements.txt
-
-# Flutter (if not installed)
-# https://docs.flutter.dev/get-started/install
-```
-
-### 2. Start the Server
-
-```bash
-python main.py --no-ssl --no-auth
-```
-
-### 3. Access the Application
-
-| Page | URL |
-|------|-----|
-| 🗺️ **Map Application** | http://localhost:8000/app/ |
-| 📚 **API Documentation** | http://localhost:8000/docs |
-| 🔐 **Wallet Page** | http://localhost:8000/static/wallet.html |
-
----
-
 ## 📱 Flutter Mobile/Web Application
 
 ### Features
@@ -58,7 +30,7 @@ Only valid Ethereum addresses are accepted:
 
 ---
 
-## 🐍 Python Backend
+## 🐍 Python Backend Details
 
 ### API Endpoints
 
@@ -71,8 +43,62 @@ Only valid Ethereum addresses are accepted:
 | POST | `/api/wallet/create` | Create new wallet |
 | POST | `/api/wallet/unlock` | Unlock wallet |
 | GET | `/api/blockchain/identity/{addr}` | Volunteer identity |
+| POST | `/api/{id}/verify` | Verify request on blockchain |
+| POST | `/api/{id}/accept` | Accept a help request |
+| POST | `/api/{id}/complete` | Complete a help request |
 
-### Modules
+### Main Modules
+
+#### `main.py`
+- Creates FastAPI application
+- Starts P2P node
+- SSL/TLS support (optional)
+- Configuration via command-line arguments
+
+#### `api.py`
+REST API endpoints for help requests, network stats, and blockchain-integrated actions.
+
+#### `p2p.py`
+- **TCP Server/Client**: Peer-to-peer messaging
+- **UDP Broadcast**: Local network peer discovery
+- **Gossip Protocol**: Epidemic message dissemination
+- **BLE Integration**: Bluetooth mesh support
+
+#### `wallet.py`
+- **HD Wallet**: BIP-39 mnemonic wallet creation
+- **Encryption**: AES-256-GCM, PBKDF2 key derivation
+- **Operations**: Message and transaction signing
+- **Storage**: Encrypted JSON in `.wallets/` directory
+
+#### `blockchain.py`
+- VolunteerIdentity: Volunteer registration, trust levels
+- TaskEscrow: Task management and verification
+- AidDistribution: Donation pool, multi-sig
+- MeshIncentive: MESH token rewards
+
+#### `models.py`
+Data models:
+- `HelpRequest`: Main help request message
+- `GeoLocation`: GPS coordinates
+- `NodeIdentity`: Cryptographic node identity
+- `RequestType`: MEDICAL, RESCUE, SHELTER, FOOD_WATER, TRANSPORT, INFO
+- `RequestPriority`: CRITICAL, HIGH, MEDIUM, LOW
+
+---
+
+## 📱 Flutter Frontend Details
+
+### Screens (`lib/screens/`)
+
+| File | Description |
+|------|-------------|
+| `welcome_screen.dart` | Ethereum address login |
+| `map_screen.dart` | OpenStreetMap map view |
+| `profile_screen.dart` | Digital identity and statistics |
+| `list_screen.dart` | Help requests list |
+| `statistics_screen.dart` | Network statistics |
+
+### Services (`lib/services/`)
 
 | File | Description |
 |------|-------------|
@@ -105,6 +131,58 @@ npx hardhat run scripts/deploy.js --network localhost
 ```
 
 ---
+
+## 📦 Dependencies
+
+### Python (`requirements.txt`)
+```
+fastapi>=0.104.0       # Web framework
+uvicorn>=0.24.0        # ASGI server
+pydantic>=2.5.0        # Data validation
+bleak>=0.22.0          # BLE client
+mnemonic>=0.20         # BIP-39 mnemonic
+cryptography>=41.0.0   # Encryption
+web3>=6.0.0            # Ethereum
+eth-account>=0.10.0    # Account management
+```
+
+### Blockchain (`blockchain/package.json`)
+- Hardhat development environment
+- OpenZeppelin contracts
+
+---
+
+## 🚀 Running Commands
+
+### Start Backend
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Start server (without SSL and auth)
+python main.py --no-ssl --no-auth
+```
+
+### Flutter Web Build
+```bash
+flutter pub get
+flutter build web --release --base-href /app/
+```
+
+### Start Blockchain (Optional)
+```bash
+cd blockchain
+npx hardhat node              # Start local node
+npx hardhat run scripts/deploy.js --network localhost
+```
+
+### Access URLs
+
+| Page | URL |
+|------|-----|
+| 🗺️ Map Application | http://localhost:8000/app/ |
+| 📚 API Documentation | http://localhost:8000/docs |
+| 🔐 Wallet Page | http://localhost:8000/static/wallet.html |
 
 ## 🏗️ Project Structure
 
