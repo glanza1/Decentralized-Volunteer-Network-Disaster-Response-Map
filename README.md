@@ -23,7 +23,7 @@ flutter build web --release --base-href /app/
 ```
 
 ### Entry Requirement
-Only valid Ethereum addresses are accepted:
+Only valid Ethereum addresses are accepted, test adress is below:
 ```
 0xF018C3A8cfa5B17a36180a293092Ec884B8ecA61
 ```
@@ -122,15 +122,6 @@ Data models:
 | `AidDistribution.sol` | Donation pool + multi-signature |
 | `MeshIncentive.sol` | P2P network contribution rewards (MESH token) |
 
-### Start Blockchain (Optional)
-
-```bash
-cd blockchain
-npx hardhat node
-npx hardhat run scripts/deploy.js --network localhost
-```
-
----
 
 ## 📦 Dependencies
 
@@ -221,8 +212,3 @@ npx hardhat run scripts/deploy.js --network localhost
 - **BLE:** Bluetooth mesh communication (Linux, optional)
 - **Store-and-Forward:** Message queuing when disconnected
 
----
-
-## 📜 License
-
-MIT License
